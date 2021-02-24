@@ -163,6 +163,10 @@ class SCAdapter {
   async getAccountVotes(walletAddress) {
     return this.invokeProcedure('getAccountVotes', { walletAddress });
   }
+
+  async getMinFees() {
+    return this.invokeProcedure('getMinFees');
+  }
 }
 
 module.exports = SCAdapter;

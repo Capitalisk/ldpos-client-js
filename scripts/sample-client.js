@@ -78,7 +78,10 @@ const blockchainNodePort = process.argv[3] || 7001;
   // let pendingTxnCount = await client.getPendingTransactionCount();
   // console.log('PENDING TRANSACTION COUNT:', pendingTxnCount);
 
-  let result = await client.getBlocksBetweenHeights(0, 100);
-  console.log('RESULT:', result);
+  // let blocks = await client.getBlocksBetweenHeights(0, 100);
+  // console.log('BLOCKS:', blocks);
+
+  let minFees = await client.getMinFees();
+  console.log('MIN FEES:', minFees);
 
 })();

@@ -851,6 +851,11 @@ class LDPoSClient {
     return this.adapter.getAccountVotes(walletAddress);
   }
 
+  async getMinFees() {
+    this.verifyAdapterSupportsMethod('getMinFees');
+    return this.adapter.getMinFees();
+  }
+
   verifyAdapterSupportsMethod(methodName) {
     if (!this.adapter[methodName]) {
       throw new Error(
