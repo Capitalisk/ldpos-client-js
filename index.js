@@ -13,7 +13,6 @@ const WALLET_ADDRESS_BASE_BYTE_LENGTH = 20;
 const HEX_REGEX = /^([0-9a-f])*$/;
 
 // TODO: Add methods for proving or disproving a signed transaction based on signatureHash.
-// TODO: Add method to find the first key index which corresponds to a specific public key.
 
 class LDPoSClient {
   constructor(options) {
