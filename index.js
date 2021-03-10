@@ -102,7 +102,7 @@ class LDPoSClient {
     }
 
     if (options.walletAddress == null) {
-      this.walletAddress = this.computeWalletAddressFromSeed(this.sigSeed);
+      this.walletAddress = await this.computeWalletAddressFromSeed(this.sigSeed);
     } else {
       this.walletAddress = options.walletAddress;
     }
@@ -123,9 +123,11 @@ class LDPoSClient {
       this.sigKeyIndex = options.sigKeyIndex;
     }
 
-    this.makeForgingTreesFromKeyIndex(this.forgingKeyIndex);
-    this.makeMultisigTreesFromKeyIndex(this.multisigKeyIndex);
-    this.makeSigTreesFromKeyIndex(this.sigKeyIndex);
+    await Promise.all([
+      this.makeForgingTreesFromKeyIndex(this.forgingKeyIndex),
+      this.makeMultisigTreesFromKeyIndex(this.multisigKeyIndex),
+      this.makeSigTreesFromKeyIndex(this.sigKeyIndex)
+    ]);
   }
 
   disconnect() {
@@ -197,7 +199,8 @@ class LDPoSClient {
     let accountPublicKey = account[publicKeyName];
     let accountNextPublicKey = account[`next${this.capitalizeString(publicKeyName)}`];
 
-    if (!this.verifyKeyIndex(type, accountKeyIndex, accountPublicKey, accountNextPublicKey)) {
+    let isKeyIndexValid = await this.verifyKeyIndex(type, accountKeyIndex, accountPublicKey, accountNextPublicKey);
+    if (!isKeyIndexValid) {
       throw new Error(
         `The target node sent back a key index which does not correspond to the ${
           type
@@ -210,19 +213,19 @@ class LDPoSClient {
       await this.saveKeyIndex(keyIndexName, accountNextKeyIndex);
       if (type === 'forging') {
         this.forgingKeyIndex = accountNextKeyIndex;
-        this.makeForgingTreesFromKeyIndex(accountNextKeyIndex);
+        await this.makeForgingTreesFromKeyIndex(accountNextKeyIndex);
       } else if (type === 'multisig') {
         this.multisigKeyIndex = accountNextKeyIndex;
-        this.makeMultisigTreesFromKeyIndex(accountNextKeyIndex);
+        await this.makeMultisigTreesFromKeyIndex(accountNextKeyIndex);
       } else {
         this.sigKeyIndex = accountNextKeyIndex;
-        this.makeSigTreesFromKeyIndex(accountNextKeyIndex);
+        await this.makeSigTreesFromKeyIndex(accountNextKeyIndex);
       }
     }
     return isNew;
   }
 
-  verifyKeyIndex(type, keyIndex, publicKey, nextPublicKey) {
+  async verifyKeyIndex(type, keyIndex, publicKey, nextPublicKey) {
     if (!this.walletAddress) {
       throw new Error(
         'Client must be connected with a passphrase in order to verify a key index'
@@ -233,8 +236,10 @@ class LDPoSClient {
     }
     let seed = this[`${type}Seed`];
     let treeIndex = this.computeTreeIndex(keyIndex);
-    let targetTree = this.computeTreeFromSeed(seed, type, treeIndex);
-    let targetNextTree = this.computeTreeFromSeed(seed, type, treeIndex + 1);
+    let [ targetTree, targetNextTree ] = await Promise.all([
+      this.computeTreeFromSeed(seed, type, treeIndex),
+      this.computeTreeFromSeed(seed, type, treeIndex + 1)
+    ]);
 
     return publicKey === targetTree.publicRootHash && nextPublicKey === targetNextTree.publicRootHash;
   }
@@ -247,9 +252,9 @@ class LDPoSClient {
     return this.store.saveItem(`${this.walletAddress}-${type}`, String(value));
   }
 
-  generateWallet() {
+  async generateWallet() {
     let passphrase = bip39.generateMnemonic();
-    let address = this.computeWalletAddressFromPassphrase(passphrase);
+    let address = await this.computeWalletAddressFromPassphrase(passphrase);
     return {
       address,
       passphrase
@@ -264,19 +269,19 @@ class LDPoSClient {
     }`;
   }
 
-  computePublicKeyFromSeed(seed, type, treeIndex) {
-    let sigTree = this.computeTreeFromSeed(seed, type, treeIndex);
+  async computePublicKeyFromSeed(seed, type, treeIndex) {
+    let sigTree = await this.computeTreeFromSeed(seed, type, treeIndex);
     return sigTree.publicRootHash;
   }
 
-  computeWalletAddressFromSeed(seed) {
-    let publicKey = this.computePublicKeyFromSeed(seed, 'sig', 0);
+  async computeWalletAddressFromSeed(seed) {
+    let publicKey = await this.computePublicKeyFromSeed(seed, 'sig', 0);
     return this.computeWalletAddressFromPublicKey(publicKey);
   }
 
-  computeWalletAddressFromPassphrase(passphrase) {
+  async computeWalletAddressFromPassphrase(passphrase) {
     let seed = this.computeSeedFromPassphrase(passphrase);
-    let publicKey = this.computePublicKeyFromSeed(seed, 'sig', 0);
+    let publicKey = await this.computePublicKeyFromSeed(seed, 'sig', 0);
     return this.computeWalletAddressFromPublicKey(publicKey);
   }
 
@@ -342,7 +347,7 @@ class LDPoSClient {
     };
   }
 
-  prepareRegisterMultisigWallet(options) {
+  async prepareRegisterMultisigWallet(options) {
     options = options || {};
     let { memberAddresses, requiredSignatureCount } = options;
     return this.prepareTransaction({
@@ -355,14 +360,16 @@ class LDPoSClient {
     });
   }
 
-  prepareRegisterSigDetails(options) {
+  async prepareRegisterSigDetails(options) {
     options = options || {};
     let sigPassphrase = options.passphrase || this.sigPassphrase;
     let newNextSigKeyIndex = options.newNextSigKeyIndex || 0;
     let treeIndex = this.computeTreeIndex(newNextSigKeyIndex);
     let seed = this.computeSeedFromPassphrase(sigPassphrase);
-    let mssTree = this.computeTreeFromSeed(seed, 'sig', treeIndex);
-    let nextMSSTree = this.computeTreeFromSeed(seed, 'sig', treeIndex + 1);
+    let [ mssTree, nextMSSTree ] = await Promise.all([
+      this.computeTreeFromSeed(seed, 'sig', treeIndex),
+      this.computeTreeFromSeed(seed, 'sig', treeIndex + 1)
+    ]);
     return this.prepareTransaction({
       type: 'registerSigDetails',
       fee: options.fee,
@@ -374,14 +381,16 @@ class LDPoSClient {
     });
   }
 
-  prepareRegisterMultisigDetails(options) {
+  async prepareRegisterMultisigDetails(options) {
     options = options || {};
     let multisigPassphrase = options.multisigPassphrase || this.multisigPassphrase;
     let newNextMultisigKeyIndex = options.newNextMultisigKeyIndex || 0;
     let treeIndex = this.computeTreeIndex(newNextMultisigKeyIndex);
     let seed = this.computeSeedFromPassphrase(multisigPassphrase);
-    let mssTree = this.computeTreeFromSeed(seed, 'multisig', treeIndex);
-    let nextMSSTree = this.computeTreeFromSeed(seed, 'multisig', treeIndex + 1);
+    let [ mssTree, nextMSSTree ] = await Promise.all([
+      this.computeTreeFromSeed(seed, 'multisig', treeIndex),
+      this.computeTreeFromSeed(seed, 'multisig', treeIndex + 1)
+    ]);
     return this.prepareTransaction({
       type: 'registerMultisigDetails',
       fee: options.fee,
@@ -393,14 +402,16 @@ class LDPoSClient {
     });
   }
 
-  prepareRegisterForgingDetails(options) {
+  async prepareRegisterForgingDetails(options) {
     options = options || {};
     let forgingPassphrase = options.forgingPassphrase || this.forgingPassphrase;
     let newNextForgingKeyIndex = options.newNextForgingKeyIndex || 0;
     let treeIndex = this.computeTreeIndex(newNextForgingKeyIndex);
     let seed = this.computeSeedFromPassphrase(forgingPassphrase);
-    let mssTree = this.computeTreeFromSeed(seed, 'forging', treeIndex);
-    let nextMSSTree = this.computeTreeFromSeed(seed, 'forging', treeIndex + 1);
+    let [ mssTree, nextMSSTree ] = await Promise.all([
+      this.computeTreeFromSeed(seed, 'forging', treeIndex),
+      this.computeTreeFromSeed(seed, 'forging', treeIndex + 1)
+    ]);
     return this.prepareTransaction({
       type: 'registerForgingDetails',
       fee: options.fee,
@@ -524,15 +535,19 @@ class LDPoSClient {
     return `${this.networkSymbol}-${type}-${treeIndex}`;
   }
 
-  makeForgingTrees(treeIndex) {
-    this.forgingTree = this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex);
+  async makeForgingTrees(treeIndex) {
+    let [ forgingTree, nextForgingTree ] = await Promise.all([
+      this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex),
+      this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex + 1)
+    ]);
+    this.forgingTree = forgingTree;
     this.forgingPublicKey = this.forgingTree.publicRootHash;
-    this.nextForgingTree = this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex + 1);
+    this.nextForgingTree = nextForgingTree;
     this.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
   }
 
-  makeForgingTreesFromKeyIndex(keyIndex) {
-    this.makeForgingTrees(this.computeTreeIndex(keyIndex));
+  async makeForgingTreesFromKeyIndex(keyIndex) {
+    await this.makeForgingTrees(this.computeTreeIndex(keyIndex));
   }
 
   async incrementForgingKey() {
@@ -547,19 +562,23 @@ class LDPoSClient {
     let newTreeIndex = this.computeTreeIndex(this.forgingKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
-      this.makeForgingTrees(newTreeIndex);
+      await this.makeForgingTrees(newTreeIndex);
     }
   }
 
-  makeMultisigTrees(treeIndex) {
-    this.multisigTree = this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex);
+  async makeMultisigTrees(treeIndex) {
+    let [ multisigTree, nextMultisigTree ] = await Promise.all([
+      this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex),
+      this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex + 1)
+    ]);
+    this.multisigTree = multisigTree;
     this.multisigPublicKey = this.multisigTree.publicRootHash;
-    this.nextMultisigTree = this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex + 1);
+    this.nextMultisigTree = nextMultisigTree;
     this.nextMultisigPublicKey = this.nextMultisigTree.publicRootHash;
   }
 
-  makeMultisigTreesFromKeyIndex(keyIndex) {
-    this.makeMultisigTrees(this.computeTreeIndex(keyIndex));
+  async makeMultisigTreesFromKeyIndex(keyIndex) {
+    await this.makeMultisigTrees(this.computeTreeIndex(keyIndex));
   }
 
   async incrementMultisigKey() {
@@ -574,19 +593,23 @@ class LDPoSClient {
     let newTreeIndex = this.computeTreeIndex(this.multisigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
-      this.makeMultisigTrees(newTreeIndex);
+      await this.makeMultisigTrees(newTreeIndex);
     }
   }
 
-  makeSigTrees(treeIndex) {
-    this.sigTree = this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex);
+  async makeSigTrees(treeIndex) {
+    let [ sigTree, nextSigTree ] = await Promise.all([
+      this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex),
+      this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex + 1)
+    ]);
+    this.sigTree = sigTree;
     this.sigPublicKey = this.sigTree.publicRootHash;
-    this.nextSigTree = this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex + 1);
+    this.nextSigTree = nextSigTree;
     this.nextSigPublicKey = this.nextSigTree.publicRootHash;
   }
 
-  makeSigTreesFromKeyIndex(keyIndex) {
-    this.makeSigTrees(this.computeTreeIndex(keyIndex));
+  async makeSigTreesFromKeyIndex(keyIndex) {
+    await this.makeSigTrees(this.computeTreeIndex(keyIndex));
   }
 
   async incrementSigKey() {
@@ -601,7 +624,7 @@ class LDPoSClient {
     let newTreeIndex = this.computeTreeIndex(this.sigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
-      this.makeSigTrees(newTreeIndex);
+      await this.makeSigTrees(newTreeIndex);
     }
   }
 
@@ -685,12 +708,12 @@ class LDPoSClient {
     return bip39.mnemonicToSeedSync(passphrase).toString(SEED_ENCODING);
   }
 
-  computeTreeFromSeed(seed, type, treeIndex) {
+  async computeTreeFromSeed(seed, type, treeIndex) {
     let treeName = this.computeTreeName(type, treeIndex);
-    return this.merkle.generateMSSTreeSync(seed, treeName);
+    return this.merkle.generateMSSTree(seed, treeName);
   }
 
-  computeTree(type, treeIndex) {
+  async computeTree(type, treeIndex) {
     let seed;
     if (type === 'sig') {
       seed = this.sigSeed;
