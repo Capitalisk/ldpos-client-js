@@ -327,13 +327,16 @@ class LDPoSClient {
     }
     let extendedTransaction = {
       ...transaction,
-      senderAddress: this.walletAddress,
-      sigPublicKey: this.sigTree.publicRootHash,
-      nextSigPublicKey: this.nextSigTree.publicRootHash,
-      nextSigKeyIndex: this.sigKeyIndex + 1
+      senderAddress: this.walletAddress
     };
 
-    extendedTransaction.id = this.computeId(extendedTransaction);
+    let transactionId = this.computeId(extendedTransaction);
+
+    extendedTransaction.sigPublicKey = this.sigTree.publicRootHash;
+    extendedTransaction.nextSigPublicKey = this.nextSigTree.publicRootHash;
+    extendedTransaction.nextSigKeyIndex = this.sigKeyIndex + 1;
+
+    extendedTransaction.id = transactionId;
 
     let extendedTransactionWithIdJSON = this.stringifyObject(extendedTransaction);
     let leafIndex = this.computeLeafIndex(this.sigKeyIndex);
@@ -424,8 +427,17 @@ class LDPoSClient {
   }
 
   verifyTransactionId(transaction) {
-    let { id, senderSignature, senderSignatureHash, signatures, ...transactionWithoutIdAndSignatures } = transaction;
-    let expectedId = this.computeId(transactionWithoutIdAndSignatures);
+    let {
+      id,
+      senderSignature,
+      senderSignatureHash,
+      signatures,
+      sigPublicKey,
+      nextSigPublicKey,
+      nextSigKeyIndex,
+      ...simplifiedTransaction
+    } = transaction;
+    let expectedId = this.computeId(simplifiedTransaction);
     return id === expectedId;
   }
 
@@ -634,13 +646,16 @@ class LDPoSClient {
     }
     let extendedBlock = {
       ...block,
-      forgerAddress: this.walletAddress,
-      forgingPublicKey: this.forgingTree.publicRootHash,
-      nextForgingPublicKey: this.nextForgingTree.publicRootHash,
-      nextForgingKeyIndex: this.forgingKeyIndex + 1
+      forgerAddress: this.walletAddress
     };
 
-    extendedBlock.id = this.computeId(extendedBlock);
+    let blockId = this.computeId(extendedBlock);
+
+    extendedBlock.forgingPublicKey = this.forgingTree.publicRootHash;
+    extendedBlock.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
+    extendedBlock.nextForgingKeyIndex = this.forgingKeyIndex + 1;
+
+    extendedBlock.id = blockId;
 
     let extendedBlockWithIdJSON = this.stringifyObject(extendedBlock);
     let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
@@ -690,8 +705,16 @@ class LDPoSClient {
   }
 
   verifyBlockId(block) {
-    let { id, forgerSignature, signatures, ...blockWithoutIdAndSignatures } = block;
-    let expectedId = this.computeId(blockWithoutIdAndSignatures);
+    let {
+      id,
+      forgerSignature,
+      signatures,
+      forgingPublicKey,
+      nextForgingPublicKey,
+      nextForgingKeyIndex,
+      ...simplifiedBlock
+    } = block;
+    let expectedId = this.computeId(simplifiedBlock);
     return id === expectedId;
   }
 
