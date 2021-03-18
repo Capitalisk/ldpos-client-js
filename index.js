@@ -891,6 +891,11 @@ class LDPoSClient {
     return this.adapter.getForgingDelegates();
   }
 
+  async getDelegate(walletAddress) {
+    this.verifyAdapterSupportsMethod('getDelegate');
+    return this.adapter.getDelegate(walletAddress);
+  }
+
   async getAccountVotes(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccountVotes');
     return this.adapter.getAccountVotes(walletAddress);

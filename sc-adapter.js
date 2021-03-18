@@ -160,6 +160,10 @@ class SCAdapter {
     return this.invokeProcedure('getForgingDelegates');
   }
 
+  async getDelegate(walletAddress) {
+    return this.invokeProcedure('getDelegate', { walletAddress });
+  }
+
   async getAccountVotes(walletAddress) {
     return this.invokeProcedure('getAccountVotes', { walletAddress });
   }
