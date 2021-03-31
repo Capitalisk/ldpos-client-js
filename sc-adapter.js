@@ -50,7 +50,12 @@ class SCAdapter {
         data
       });
     } catch (error) {
-      throw new Error(error.message);
+      let err = new Error(error.message);
+      // Copy custom error properties such as name and sourceError
+      for (let key in error) {
+        err[key] = error[key];
+      }
+      throw err;
     }
     if (!result) {
       throw new Error(
