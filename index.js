@@ -816,14 +816,14 @@ class LDPoSClient {
     return this.adapter.getTransactionsByTimestamp(offset, limit, order);
   }
 
-  async getInboundTransactions(walletAddress, fromTimestamp, limit, order) {
+  async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getInboundTransactions');
-    return this.adapter.getInboundTransactions(walletAddress, fromTimestamp, limit, order);
+    return this.adapter.getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
-  async getOutboundTransactions(walletAddress, fromTimestamp, limit, order) {
+  async getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getOutboundTransactions');
-    return this.adapter.getOutboundTransactions(walletAddress, fromTimestamp, limit, order);
+    return this.adapter.getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
   async getTransactionsFromBlock(blockId, offset, limit) {
