@@ -1,7 +1,7 @@
 const socketClusterClient = require('socketcluster-client');
 const querystring = require('querystring');
 
-const DEFAULT_NETHASH = 'ed14889723f24ecc54871d058d98ce91ff2f973192075c0155ba2b7b70ad2511';
+const DEFAULT_NETHASH = null;
 const RPC_REQUEST_PROCEDURE = 'rpc-request';
 
 class SCAdapter {
