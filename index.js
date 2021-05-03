@@ -652,9 +652,6 @@ class LDPoSClient {
     let blockId = this.computeId(extendedBlock);
 
     extendedBlock.forgingPublicKey = this.forgingTree.publicRootHash;
-    extendedBlock.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
-    extendedBlock.nextForgingKeyIndex = this.forgingKeyIndex + 1;
-
     extendedBlock.id = blockId;
 
     let extendedBlockWithIdJSON = this.stringifyObject(extendedBlock);
@@ -674,7 +671,7 @@ class LDPoSClient {
     if (!this.forgingTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a block');
     }
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = preparedBlock;
+    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = preparedBlock;
 
     let metaPacket = {
       blockId: blockWithoutSignatures.id,
@@ -704,11 +701,11 @@ class LDPoSClient {
     return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
-  async signBlockTrailer(fullySignedBlock) {
+  async signBlockTrailer(signedBlock) {
     if (!this.forgingTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a block trailer');
     }
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = fullySignedBlock;
+    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = signedBlock;
 
     let metaPacket = {
       blockId: blockWithoutSignatures.id,
@@ -731,8 +728,8 @@ class LDPoSClient {
     };
   }
 
-  verifyBlockTrailerSignature(fullySignedBlock, trailerSignaturePacket) {
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = fullySignedBlock;
+  verifyBlockTrailerSignature(signedBlock, trailerSignaturePacket) {
+    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = signedBlock;
     let { signature, ...metaPacket } = trailerSignaturePacket;
 
     let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
@@ -744,9 +741,8 @@ class LDPoSClient {
       id,
       forgerSignature,
       signatures,
+      trailerSignature,
       forgingPublicKey,
-      nextForgingPublicKey,
-      nextForgingKeyIndex,
       ...simplifiedBlock
     } = block;
     let expectedId = this.computeId(simplifiedBlock);
@@ -757,7 +753,7 @@ class LDPoSClient {
     if (!this.verifyBlockId(block)) {
       return false;
     }
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = block;
+    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = block;
     let blockJSON = this.stringifyObject(blockWithoutSignatures);
     return this.merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
   }
