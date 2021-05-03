@@ -704,6 +704,41 @@ class LDPoSClient {
     return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
+  async signBlockTrailer(fullySignedBlock) {
+    if (!this.forgingTree) {
+      throw new Error('Client must be connected with a passphrase in order to sign a block trailer');
+    }
+    let { forgerSignature, signatures, ...blockWithoutSignatures } = fullySignedBlock;
+
+    let metaPacket = {
+      blockId: blockWithoutSignatures.id,
+      blockSignerAddresses: signatures.map((signaturePacket) => signaturePacket.signerAddress),
+      signerAddress: this.walletAddress,
+      forgingPublicKey: this.forgingTree.publicRootHash,
+      nextForgingPublicKey: this.nextForgingTree.publicRootHash,
+      nextForgingKeyIndex: this.forgingKeyIndex + 1
+    };
+
+    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
+    let signature = this.merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
+
+    await this.incrementForgingKey();
+
+    return {
+      ...metaPacket,
+      signature
+    };
+  }
+
+  verifyBlockTrailerSignature(fullySignedBlock, trailerSignaturePacket) {
+    let { forgerSignature, signatures, ...blockWithoutSignatures } = fullySignedBlock;
+    let { signature, ...metaPacket } = trailerSignaturePacket;
+
+    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
+  }
+
   verifyBlockId(block) {
     let {
       id,
