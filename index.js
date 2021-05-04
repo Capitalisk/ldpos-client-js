@@ -701,39 +701,40 @@ class LDPoSClient {
     return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
-  async signBlockTrailer(signedBlock) {
+  async signBlockTrailer(preparedBlock, blockSignerAddresses) {
     if (!this.forgingTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a block trailer');
     }
-    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = signedBlock;
 
-    let metaPacket = {
-      blockId: blockWithoutSignatures.id,
-      blockSignerAddresses: signatures.map((signaturePacket) => signaturePacket.signerAddress),
+    let trailerPacket = {
+      blockId: preparedBlock.id,
+      blockSignerAddresses,
       signerAddress: this.walletAddress,
       forgingPublicKey: this.forgingTree.publicRootHash,
       nextForgingPublicKey: this.nextForgingTree.publicRootHash,
       nextForgingKeyIndex: this.forgingKeyIndex + 1
     };
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    let trailerPacketJSON = this.stringifyObject(trailerPacket);
     let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
-    let signature = this.merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
+    let signature = this.merkle.sign(trailerPacketJSON, this.forgingTree, leafIndex);
 
     await this.incrementForgingKey();
 
     return {
-      ...metaPacket,
+      ...trailerPacket,
       signature
     };
   }
 
-  verifyBlockTrailerSignature(signedBlock, trailerSignaturePacket) {
-    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = signedBlock;
-    let { signature, ...metaPacket } = trailerSignaturePacket;
+  verifyBlockTrailerSignature(preparedBlock, blockTrailerSignature) {
+    let { signature, ...trailerPacket } = blockTrailerSignature;
+    if (blockTrailerSignature.blockId !== preparedBlock.id) {
+      return false;
+    }
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
-    return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
+    let trailerPacketJSON = this.stringifyObject(trailerPacket);
+    return this.merkle.verify(trailerPacketJSON, signature, trailerPacket.forgingPublicKey);
   }
 
   verifyBlockId(block) {
