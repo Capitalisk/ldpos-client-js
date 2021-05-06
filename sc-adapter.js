@@ -17,7 +17,8 @@ class SCAdapter {
         version: options.clientVersion || '2.0.0',
         isPassive: true
       }),
-      autoConnect: false
+      autoConnect: false,
+      ...options
     });
     this.chainModuleName = options.chainModuleName || 'ldpos_chain';
   }
