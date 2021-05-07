@@ -106,6 +106,10 @@ class SCAdapter {
     return this.invokeProcedure('getTransactionsByTimestamp', { offset, limit, order });
   }
 
+  async getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order) {
+    return this.invokeProcedure('getAccountTransactions', { walletAddress, fromTimestamp, offset, limit, order });
+  }
+
   async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     return this.invokeProcedure('getInboundTransactions', { walletAddress, fromTimestamp, offset, limit, order });
   }

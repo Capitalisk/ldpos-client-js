@@ -652,6 +652,9 @@ class LDPoSClient {
     let blockId = this.computeId(extendedBlock);
 
     extendedBlock.forgingPublicKey = this.forgingTree.publicRootHash;
+    extendedBlock.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
+    extendedBlock.nextForgingKeyIndex = this.forgingKeyIndex + 1;
+
     extendedBlock.id = blockId;
 
     let extendedBlockWithIdJSON = this.stringifyObject(extendedBlock);
@@ -671,7 +674,7 @@ class LDPoSClient {
     if (!this.forgingTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a block');
     }
-    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = preparedBlock;
+    let { forgerSignature, signatures, ...blockWithoutSignatures } = preparedBlock;
 
     let metaPacket = {
       blockId: blockWithoutSignatures.id,
@@ -701,49 +704,14 @@ class LDPoSClient {
     return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
-  async signBlockTrailer(preparedBlock, blockSignerAddresses) {
-    if (!this.forgingTree) {
-      throw new Error('Client must be connected with a passphrase in order to sign a block trailer');
-    }
-
-    let trailerPacket = {
-      blockId: preparedBlock.id,
-      blockSignerAddresses,
-      signerAddress: this.walletAddress,
-      forgingPublicKey: this.forgingTree.publicRootHash,
-      nextForgingPublicKey: this.nextForgingTree.publicRootHash,
-      nextForgingKeyIndex: this.forgingKeyIndex + 1
-    };
-
-    let trailerPacketJSON = this.stringifyObject(trailerPacket);
-    let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
-    let signature = this.merkle.sign(trailerPacketJSON, this.forgingTree, leafIndex);
-
-    await this.incrementForgingKey();
-
-    return {
-      ...trailerPacket,
-      signature
-    };
-  }
-
-  verifyBlockTrailerSignature(preparedBlock, blockTrailerSignature) {
-    let { signature, ...trailerPacket } = blockTrailerSignature;
-    if (blockTrailerSignature.blockId !== preparedBlock.id) {
-      return false;
-    }
-
-    let trailerPacketJSON = this.stringifyObject(trailerPacket);
-    return this.merkle.verify(trailerPacketJSON, signature, trailerPacket.forgingPublicKey);
-  }
-
   verifyBlockId(block) {
     let {
       id,
       forgerSignature,
       signatures,
-      trailerSignature,
       forgingPublicKey,
+      nextForgingPublicKey,
+      nextForgingKeyIndex,
       ...simplifiedBlock
     } = block;
     let expectedId = this.computeId(simplifiedBlock);
@@ -754,7 +722,7 @@ class LDPoSClient {
     if (!this.verifyBlockId(block)) {
       return false;
     }
-    let { forgerSignature, signatures, trailerSignature, ...blockWithoutSignatures } = block;
+    let { forgerSignature, signatures, ...blockWithoutSignatures } = block;
     let blockJSON = this.stringifyObject(blockWithoutSignatures);
     return this.merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
   }
@@ -846,6 +814,11 @@ class LDPoSClient {
   async getTransactionsByTimestamp(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getTransactionsByTimestamp');
     return this.adapter.getTransactionsByTimestamp(offset, limit, order);
+  }
+
+  async getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order) {
+    this.verifyAdapterSupportsMethod('getAccountTransactions');
+    return this.adapter.getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
   async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
