@@ -43,11 +43,35 @@ class SCAdapter {
     this.socket.disconnect();
   }
 
-  async invokeProcedure(action, data) {
+  async getNodeInfo() {
+    let response = await this.socket.invoke(RPC_REQUEST_PROCEDURE, {
+      procedure: 'status'
+    });
+    if (!response || !response.data) {
+      throw new Error('Node status RPC response format was invalid');
+    }
+    return response.data;
+  }
+
+  getNodeInfoChangeConsumer() {
+    return this.socket.receiver('nodeInfoChanged').createConsumer();
+  }
+
+  async getPeers() {
+    let response = await this.socket.invoke(RPC_REQUEST_PROCEDURE, {
+      procedure: 'list'
+    });
+    if (!response || !response.data || !Array.isArray(response.data.peers)) {
+      throw new Error('Peer list RPC response format was invalid');
+    }
+    return response.data.peers;
+  }
+
+  async invokeModuleProcedure(chainModuleName, action, data) {
     let result;
     try {
       result = await this.socket.invoke(RPC_REQUEST_PROCEDURE, {
-        procedure: `${this.chainModuleName}:${action}`,
+        procedure: `${chainModuleName}:${action}`,
         data
       });
     } catch (error) {
@@ -67,119 +91,119 @@ class SCAdapter {
   }
 
   async getNetworkSymbol() {
-    return this.invokeProcedure('getNetworkSymbol');
+    return this.invokeModuleProcedure(this.chainModuleName, 'getNetworkSymbol');
   }
 
   async getAccount(walletAddress) {
-    return this.invokeProcedure('getAccount', { walletAddress });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getAccount', { walletAddress });
   }
 
   async getAccountsByBalance(offset, limit, order) {
-    return this.invokeProcedure('getAccountsByBalance', { offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getAccountsByBalance', { offset, limit, order });
   }
 
   async getMultisigWalletMembers(walletAddress) {
-    return this.invokeProcedure('getMultisigWalletMembers', { walletAddress });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getMultisigWalletMembers', { walletAddress });
   }
 
   async getSignedPendingTransaction(transactionId) {
-    return this.invokeProcedure('getSignedPendingTransaction', { transactionId });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getSignedPendingTransaction', { transactionId });
   }
 
   async getOutboundPendingTransactions(walletAddress, offset, limit) {
-    return this.invokeProcedure('getOutboundPendingTransactions', { walletAddress, offset, limit });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getOutboundPendingTransactions', { walletAddress, offset, limit });
   }
 
   async getPendingTransactionCount() {
-    return this.invokeProcedure('getPendingTransactionCount');
+    return this.invokeModuleProcedure(this.chainModuleName, 'getPendingTransactionCount');
   }
 
   async postTransaction(transaction) {
-    return this.invokeProcedure('postTransaction', { transaction });
+    return this.invokeModuleProcedure(this.chainModuleName, 'postTransaction', { transaction });
   }
 
   async getTransaction(transactionId) {
-    return this.invokeProcedure('getTransaction', { transactionId });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getTransaction', { transactionId });
   }
 
   async getTransactionsByTimestamp(offset, limit, order) {
-    return this.invokeProcedure('getTransactionsByTimestamp', { offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getTransactionsByTimestamp', { offset, limit, order });
   }
 
   async getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order) {
-    return this.invokeProcedure('getAccountTransactions', { walletAddress, fromTimestamp, offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getAccountTransactions', { walletAddress, fromTimestamp, offset, limit, order });
   }
 
   async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
-    return this.invokeProcedure('getInboundTransactions', { walletAddress, fromTimestamp, offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getInboundTransactions', { walletAddress, fromTimestamp, offset, limit, order });
   }
 
   async getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
-    return this.invokeProcedure('getOutboundTransactions', { walletAddress, fromTimestamp, offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getOutboundTransactions', { walletAddress, fromTimestamp, offset, limit, order });
   }
 
   async getTransactionsFromBlock(blockId, offset, limit) {
-    return this.invokeProcedure('getTransactionsFromBlock', { blockId, offset, limit });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getTransactionsFromBlock', { blockId, offset, limit });
   }
 
   async getInboundTransactionsFromBlock(walletAddress, blockId) {
-    return this.invokeProcedure('getInboundTransactionsFromBlock', { walletAddress, blockId });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getInboundTransactionsFromBlock', { walletAddress, blockId });
   }
 
   async getOutboundTransactionsFromBlock(walletAddress, blockId) {
-    return this.invokeProcedure('getOutboundTransactionsFromBlock', { walletAddress, blockId });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getOutboundTransactionsFromBlock', { walletAddress, blockId });
   }
 
   async getLastBlockAtTimestamp(timestamp) {
-    return this.invokeProcedure('getLastBlockAtTimestamp', { timestamp });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getLastBlockAtTimestamp', { timestamp });
   }
 
   async getMaxBlockHeight() {
-    return this.invokeProcedure('getMaxBlockHeight');
+    return this.invokeModuleProcedure(this.chainModuleName, 'getMaxBlockHeight');
   }
 
   async getBlocksFromHeight(height, limit) {
-    return this.invokeProcedure('getBlocksFromHeight', { height, limit });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getBlocksFromHeight', { height, limit });
   }
 
   async getSignedBlocksFromHeight(height, limit) {
-    return this.invokeProcedure('getSignedBlocksFromHeight', { height, limit });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getSignedBlocksFromHeight', { height, limit });
   }
 
   async getBlocksBetweenHeights(fromHeight, toHeight, limit) {
-    return this.invokeProcedure('getBlocksBetweenHeights', { fromHeight, toHeight, limit });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getBlocksBetweenHeights', { fromHeight, toHeight, limit });
   }
 
   async getBlockAtHeight(height) {
-    return this.invokeProcedure('getBlockAtHeight', { height });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getBlockAtHeight', { height });
   }
 
   async getBlock(blockId) {
-    return this.invokeProcedure('getBlock', { blockId });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getBlock', { blockId });
   }
 
   async getBlocksByTimestamp(offset, limit, order) {
-    return this.invokeProcedure('getBlocksByTimestamp', { offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getBlocksByTimestamp', { offset, limit, order });
   }
 
   async getDelegatesByVoteWeight(offset, limit, order) {
-    return this.invokeProcedure('getDelegatesByVoteWeight', { offset, limit, order });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getDelegatesByVoteWeight', { offset, limit, order });
   }
 
   async getForgingDelegates() {
-    return this.invokeProcedure('getForgingDelegates');
+    return this.invokeModuleProcedure(this.chainModuleName, 'getForgingDelegates');
   }
 
   async getDelegate(walletAddress) {
-    return this.invokeProcedure('getDelegate', { walletAddress });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getDelegate', { walletAddress });
   }
 
   async getAccountVotes(walletAddress) {
-    return this.invokeProcedure('getAccountVotes', { walletAddress });
+    return this.invokeModuleProcedure(this.chainModuleName, 'getAccountVotes', { walletAddress });
   }
 
   async getMinFees() {
-    return this.invokeProcedure('getMinFees');
+    return this.invokeModuleProcedure(this.chainModuleName, 'getMinFees');
   }
 }
 

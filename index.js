@@ -767,6 +767,21 @@ class LDPoSClient {
     return this.merkle.verify(message, signature, publicRootHash);
   }
 
+  async getPeers() {
+    this.verifyAdapterSupportsMethod('getPeers');
+    return this.adapter.getPeers();
+  }
+
+  async getNodeInfo() {
+    this.verifyAdapterSupportsMethod('getNodeInfo');
+    return this.adapter.getNodeInfo();
+  }
+
+  getNodeInfoChangeConsumer() {
+    this.verifyAdapterSupportsMethod('getNodeInfoChangeConsumer');
+    return this.adapter.getNodeInfoChangeConsumer();
+  }
+
   async getNetworkSymbol() {
     return this.networkSymbol;
   }
