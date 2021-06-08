@@ -30,7 +30,7 @@ async function generateWallet(networkSymbol) {
   };
 }
 
-async function computeWalletPublicKeysFromPassphrase(networkSymbol, passphrase) {
+async function computePublicKeysFromPassphrase(networkSymbol, passphrase) {
   if (passphrase == null) {
     throw new Error('Missing passphrase argument');
   }
@@ -166,7 +166,7 @@ function sha256(message, encoding) {
 module.exports = {
   merkle,
   generateWallet,
-  computeWalletPublicKeysFromPassphrase,
+  computePublicKeysFromPassphrase,
   computeWalletAddressFromPassphrase,
   computeWalletAddressFromPublicKey,
   computeSeedFromPassphrase,

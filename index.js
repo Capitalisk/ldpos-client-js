@@ -4,7 +4,7 @@ const StoreClass = require('./store');
 const {
   merkle,
   generateWallet,
-  computeWalletPublicKeysFromPassphrase,
+  computePublicKeysFromPassphrase,
   computeWalletAddressFromPassphrase,
   computeWalletAddressFromPublicKey,
   computeSeedFromPassphrase,
@@ -859,7 +859,7 @@ module.exports = {
   createClient,
   merkle,
   generateWallet,
-  computeWalletPublicKeysFromPassphrase,
+  computePublicKeysFromPassphrase,
   computeWalletAddressFromPassphrase,
   computeWalletAddressFromPublicKey,
   computeSeedFromPassphrase,
