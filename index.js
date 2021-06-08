@@ -1,16 +1,36 @@
-const bip39 = require('bip39');
-const LiteMerkle = require('lite-merkle');
 const SCAdapter = require('./sc-adapter');
 const StoreClass = require('./store');
 
-const LEAF_COUNT = 64;
-const SEED_ENCODING = 'hex';
-const NODE_ENCODING = 'hex';
-const SIGNATURE_ENCODING = 'base64';
-const ID_ENCODING = 'hex';
-const ID_LENGTH = 40;
-const WALLET_ADDRESS_BASE_BYTE_LENGTH = 20;
-const HEX_REGEX = /^([0-9a-f])*$/;
+const {
+  merkle,
+  generateWallet,
+  computeWalletPublicKeysFromPassphrase,
+  computeWalletAddressFromPassphrase,
+  computeWalletAddressFromPublicKey,
+  computeSeedFromPassphrase,
+  computePublicKeyFromSeed,
+  computeTreeFromSeed,
+  computeTreeName,
+  computeWalletAddressFromSeed,
+  computeTreeIndex,
+  computeLeafIndex,
+  computeId,
+  validatePassphrase,
+  validateWalletAddress,
+  getAllObjectKeySet,
+  getAllObjectKeys,
+  stringifyObject,
+  stringifyObjectWithMetadata,
+  sha256,
+  LEAF_COUNT,
+  SEED_ENCODING,
+  NODE_ENCODING,
+  SIGNATURE_ENCODING,
+  ID_ENCODING,
+  ID_LENGTH,
+  WALLET_ADDRESS_BASE_BYTE_LENGTH,
+  HEX_REGEX
+} = require('./utils');
 
 // TODO: Add methods for proving or disproving a signed transaction based on signatureHash.
 
@@ -36,25 +56,11 @@ class LDPoSClient {
       }
       this.adapter = new SCAdapter(this.options);
     }
-    this.merkle = new LiteMerkle({
-      leafCount: LEAF_COUNT,
-      seedEncoding: SEED_ENCODING,
-      nodeEncoding: NODE_ENCODING,
-      signatureFormat: SIGNATURE_ENCODING
-    });
     if (this.options.store) {
       this.store = this.options.store;
     } else {
       this.store = new StoreClass(this.options);
     }
-  }
-
-  computeTreeIndex(keyIndex) {
-    return Math.floor(keyIndex / LEAF_COUNT);
-  }
-
-  computeLeafIndex(keyIndex) {
-    return keyIndex % LEAF_COUNT;
   }
 
   async connect(options) {
@@ -81,28 +87,28 @@ class LDPoSClient {
     }
 
     this.passphrase = options.passphrase;
-    this.seed = this.computeSeedFromPassphrase(this.passphrase);
+    this.seed = computeSeedFromPassphrase(this.passphrase);
 
     this.sigPassphrase = this.passphrase;
     this.sigSeed = this.seed;
 
     if (options.multisigPassphrase) {
       this.multisigPassphrase = options.multisigPassphrase;
-      this.multisigSeed = this.computeSeedFromPassphrase(this.multisigPassphrase);
+      this.multisigSeed = computeSeedFromPassphrase(this.multisigPassphrase);
     } else {
       this.multisigPassphrase = this.passphrase;
       this.multisigSeed = this.seed;
     }
     if (options.forgingPassphrase) {
       this.forgingPassphrase = options.forgingPassphrase;
-      this.forgingSeed = this.computeSeedFromPassphrase(this.forgingPassphrase);
+      this.forgingSeed = computeSeedFromPassphrase(this.forgingPassphrase);
     } else {
       this.forgingPassphrase = this.passphrase;
       this.forgingSeed = this.seed;
     }
 
     if (options.walletAddress == null) {
-      this.walletAddress = await this.computeWalletAddressFromSeed(this.sigSeed);
+      this.walletAddress = await computeWalletAddressFromSeed(this.networkSymbol, this.sigSeed);
     } else {
       this.walletAddress = options.walletAddress;
     }
@@ -235,10 +241,10 @@ class LDPoSClient {
       throw new Error(`The specified type was invalid`);
     }
     let seed = this[`${type}Seed`];
-    let treeIndex = this.computeTreeIndex(keyIndex);
+    let treeIndex = computeTreeIndex(keyIndex);
     let [ targetTree, targetNextTree ] = await Promise.all([
-      this.computeTreeFromSeed(seed, type, treeIndex),
-      this.computeTreeFromSeed(seed, type, treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, seed, type, treeIndex),
+      computeTreeFromSeed(this.networkSymbol, seed, type, treeIndex + 1)
     ]);
 
     return publicKey === targetTree.publicRootHash && nextPublicKey === targetNextTree.publicRootHash;
@@ -253,63 +259,23 @@ class LDPoSClient {
   }
 
   async generateWallet() {
-    let passphrase = bip39.generateMnemonic();
-    let address = await this.computeWalletAddressFromPassphrase(passphrase);
-    return {
-      address,
-      passphrase
-    };
-  }
-
-  computeWalletAddressFromPublicKey(publicKey) {
-    return `${this.networkSymbol}${
-      Buffer.from(publicKey, NODE_ENCODING)
-        .slice(0, WALLET_ADDRESS_BASE_BYTE_LENGTH)
-        .toString('hex')
-    }`;
-  }
-
-  async computePublicKeyFromSeed(seed, type, treeIndex) {
-    let sigTree = await this.computeTreeFromSeed(seed, type, treeIndex);
-    return sigTree.publicRootHash;
-  }
-
-  async computeWalletAddressFromSeed(seed) {
-    let publicKey = await this.computePublicKeyFromSeed(seed, 'sig', 0);
-    return this.computeWalletAddressFromPublicKey(publicKey);
+    return generateWallet(this.networkSymbol);
   }
 
   async computeWalletAddressFromPassphrase(passphrase) {
-    let seed = this.computeSeedFromPassphrase(passphrase);
-    let publicKey = await this.computePublicKeyFromSeed(seed, 'sig', 0);
-    return this.computeWalletAddressFromPublicKey(publicKey);
+    return computeWalletAddressFromPassphrase(this.networkSymbol, passphrase);
   }
 
   validatePassphrase(passphrase) {
-    return bip39.validateMnemonic(passphrase);
+    return validatePassphrase(passphrase);
   }
 
   validateWalletAddress(walletAddress) {
-    if (typeof walletAddress !== 'string') {
-      return false;
-    }
-    if (walletAddress.indexOf(this.networkSymbol) !== 0) {
-      return false;
-    }
-    let addressBase = walletAddress.slice(this.networkSymbol.length);
-    if (addressBase.length !== WALLET_ADDRESS_BASE_BYTE_LENGTH * 2) {
-      return false;
-    }
-    return HEX_REGEX.test(addressBase);
-  }
-
-  computeId(object) {
-    let objectJSON = this.stringifyObject(object);
-    return this.sha256(objectJSON, ID_ENCODING).slice(0, ID_LENGTH);
+    return validateWalletAddress(this.networkSymbol, walletAddress);
   }
 
   sha256(message, encoding) {
-    return this.merkle.lamport.sha256(message, encoding);
+    return sha256(message, encoding);
   }
 
   getWalletAddress() {
@@ -330,7 +296,7 @@ class LDPoSClient {
       senderAddress: this.walletAddress
     };
 
-    let transactionId = this.computeId(extendedTransaction);
+    let transactionId = computeId(extendedTransaction);
 
     extendedTransaction.sigPublicKey = this.sigTree.publicRootHash;
     extendedTransaction.nextSigPublicKey = this.nextSigTree.publicRootHash;
@@ -338,9 +304,9 @@ class LDPoSClient {
 
     extendedTransaction.id = transactionId;
 
-    let extendedTransactionWithIdJSON = this.stringifyObject(extendedTransaction);
-    let leafIndex = this.computeLeafIndex(this.sigKeyIndex);
-    let senderSignature = this.merkle.sign(extendedTransactionWithIdJSON, this.sigTree, leafIndex);
+    let extendedTransactionWithIdJSON = stringifyObject(extendedTransaction);
+    let leafIndex = computeLeafIndex(this.sigKeyIndex);
+    let senderSignature = merkle.sign(extendedTransactionWithIdJSON, this.sigTree, leafIndex);
 
     await this.incrementSigKey();
 
@@ -367,11 +333,11 @@ class LDPoSClient {
     options = options || {};
     let sigPassphrase = options.passphrase || this.sigPassphrase;
     let newNextSigKeyIndex = options.newNextSigKeyIndex || 0;
-    let treeIndex = this.computeTreeIndex(newNextSigKeyIndex);
-    let seed = this.computeSeedFromPassphrase(sigPassphrase);
+    let treeIndex = computeTreeIndex(newNextSigKeyIndex);
+    let seed = computeSeedFromPassphrase(sigPassphrase);
     let [ mssTree, nextMSSTree ] = await Promise.all([
-      this.computeTreeFromSeed(seed, 'sig', treeIndex),
-      this.computeTreeFromSeed(seed, 'sig', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, seed, 'sig', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, seed, 'sig', treeIndex + 1)
     ]);
     return this.prepareTransaction({
       type: 'registerSigDetails',
@@ -388,11 +354,11 @@ class LDPoSClient {
     options = options || {};
     let multisigPassphrase = options.multisigPassphrase || this.multisigPassphrase;
     let newNextMultisigKeyIndex = options.newNextMultisigKeyIndex || 0;
-    let treeIndex = this.computeTreeIndex(newNextMultisigKeyIndex);
-    let seed = this.computeSeedFromPassphrase(multisigPassphrase);
+    let treeIndex = computeTreeIndex(newNextMultisigKeyIndex);
+    let seed = computeSeedFromPassphrase(multisigPassphrase);
     let [ mssTree, nextMSSTree ] = await Promise.all([
-      this.computeTreeFromSeed(seed, 'multisig', treeIndex),
-      this.computeTreeFromSeed(seed, 'multisig', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, seed, 'multisig', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, seed, 'multisig', treeIndex + 1)
     ]);
     return this.prepareTransaction({
       type: 'registerMultisigDetails',
@@ -409,11 +375,11 @@ class LDPoSClient {
     options = options || {};
     let forgingPassphrase = options.forgingPassphrase || this.forgingPassphrase;
     let newNextForgingKeyIndex = options.newNextForgingKeyIndex || 0;
-    let treeIndex = this.computeTreeIndex(newNextForgingKeyIndex);
-    let seed = this.computeSeedFromPassphrase(forgingPassphrase);
+    let treeIndex = computeTreeIndex(newNextForgingKeyIndex);
+    let seed = computeSeedFromPassphrase(forgingPassphrase);
     let [ mssTree, nextMSSTree ] = await Promise.all([
-      this.computeTreeFromSeed(seed, 'forging', treeIndex),
-      this.computeTreeFromSeed(seed, 'forging', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, seed, 'forging', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, seed, 'forging', treeIndex + 1)
     ]);
     return this.prepareTransaction({
       type: 'registerForgingDetails',
@@ -437,46 +403,8 @@ class LDPoSClient {
       nextSigKeyIndex,
       ...simplifiedTransaction
     } = transaction;
-    let expectedId = this.computeId(simplifiedTransaction);
+    let expectedId = computeId(simplifiedTransaction);
     return id === expectedId;
-  }
-
-  getAllObjectKeySet(object, seenRefSet) {
-    if (!seenRefSet) {
-      seenRefSet = new Set();
-    }
-    let keySet = new Set();
-    if (seenRefSet.has(object)) {
-      return keySet;
-    }
-    seenRefSet.add(object);
-    if (typeof object !== 'object') {
-      return keySet;
-    }
-    for (let key in object) {
-      keySet.add(key);
-      let item = object[key];
-      let itemKeyList = this.getAllObjectKeySet(item, seenRefSet);
-      for (let itemKey of itemKeyList) {
-        keySet.add(itemKey);
-      }
-    }
-    return keySet;
-  }
-
-  getAllObjectKeys(object) {
-    return [...this.getAllObjectKeySet(object)];
-  }
-
-  stringifyObject(object) {
-    let keyList = this.getAllObjectKeys(object);
-    return JSON.stringify(object, keyList.sort());
-  }
-
-  stringifyObjectWithMetadata(object, metadata) {
-    let objectString = this.stringifyObject(object);
-    let metadataString = this.stringifyObject(metadata);
-    return `[${objectString},${metadataString}]`;
   }
 
   verifyTransaction(transaction) {
@@ -484,8 +412,8 @@ class LDPoSClient {
       return false;
     }
     let { senderSignature, signatures, ...transactionWithoutSignatures } = transaction;
-    let transactionJSON = this.stringifyObject(transactionWithoutSignatures);
-    return this.merkle.verify(transactionJSON, senderSignature, transaction.sigPublicKey);
+    let transactionJSON = stringifyObject(transactionWithoutSignatures);
+    return merkle.verify(transactionJSON, senderSignature, transaction.sigPublicKey);
   }
 
   prepareMultisigTransaction(transaction) {
@@ -499,7 +427,7 @@ class LDPoSClient {
       senderAddress: transaction.senderAddress || this.walletAddress
     };
 
-    extendedTransaction.id = this.computeId(extendedTransaction);
+    extendedTransaction.id = computeId(extendedTransaction);
     extendedTransaction.signatures = [];
 
     return extendedTransaction;
@@ -518,9 +446,9 @@ class LDPoSClient {
       nextMultisigKeyIndex: this.multisigKeyIndex + 1
     };
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
-    let leafIndex = this.computeLeafIndex(this.multisigKeyIndex);
-    let signature = this.merkle.sign(signablePacketJSON, this.multisigTree, leafIndex);
+    let signablePacketJSON = stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
+    let leafIndex = computeLeafIndex(this.multisigKeyIndex);
+    let signature = merkle.sign(signablePacketJSON, this.multisigTree, leafIndex);
 
     await this.incrementMultisigKey();
 
@@ -539,18 +467,14 @@ class LDPoSClient {
     let { senderSignature, signatures, ...transactionWithoutSignatures } = transaction;
     let { signature, ...metaPacket } = signaturePacket;
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
-    return this.merkle.verify(signablePacketJSON, signature, metaPacket.multisigPublicKey);
-  }
-
-  computeTreeName(type, treeIndex) {
-    return `${this.networkSymbol}-${type}-${treeIndex}`;
+    let signablePacketJSON = stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
+    return merkle.verify(signablePacketJSON, signature, metaPacket.multisigPublicKey);
   }
 
   async makeForgingTrees(treeIndex) {
     let [ forgingTree, nextForgingTree ] = await Promise.all([
-      this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex),
-      this.computeTreeFromSeed(this.forgingSeed, 'forging', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, this.forgingSeed, 'forging', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, this.forgingSeed, 'forging', treeIndex + 1)
     ]);
     this.forgingTree = forgingTree;
     this.forgingPublicKey = this.forgingTree.publicRootHash;
@@ -559,7 +483,7 @@ class LDPoSClient {
   }
 
   async makeForgingTreesFromKeyIndex(keyIndex) {
-    await this.makeForgingTrees(this.computeTreeIndex(keyIndex));
+    await this.makeForgingTrees(computeTreeIndex(keyIndex));
   }
 
   async incrementForgingKey() {
@@ -568,10 +492,10 @@ class LDPoSClient {
         'Client must be connected with a passphrase in order to increment the forging key'
       );
     }
-    let currentTreeIndex = this.computeTreeIndex(this.forgingKeyIndex);
+    let currentTreeIndex = computeTreeIndex(this.forgingKeyIndex);
     this.forgingKeyIndex++;
     await this.saveKeyIndex('forgingKeyIndex', this.forgingKeyIndex);
-    let newTreeIndex = this.computeTreeIndex(this.forgingKeyIndex);
+    let newTreeIndex = computeTreeIndex(this.forgingKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
       await this.makeForgingTrees(newTreeIndex);
@@ -580,8 +504,8 @@ class LDPoSClient {
 
   async makeMultisigTrees(treeIndex) {
     let [ multisigTree, nextMultisigTree ] = await Promise.all([
-      this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex),
-      this.computeTreeFromSeed(this.multisigSeed, 'multisig', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, this.multisigSeed, 'multisig', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, this.multisigSeed, 'multisig', treeIndex + 1)
     ]);
     this.multisigTree = multisigTree;
     this.multisigPublicKey = this.multisigTree.publicRootHash;
@@ -590,7 +514,7 @@ class LDPoSClient {
   }
 
   async makeMultisigTreesFromKeyIndex(keyIndex) {
-    await this.makeMultisigTrees(this.computeTreeIndex(keyIndex));
+    await this.makeMultisigTrees(computeTreeIndex(keyIndex));
   }
 
   async incrementMultisigKey() {
@@ -599,10 +523,10 @@ class LDPoSClient {
         'Client must be connected with a passphrase in order to increment the multisig key'
       );
     }
-    let currentTreeIndex = this.computeTreeIndex(this.multisigKeyIndex);
+    let currentTreeIndex = computeTreeIndex(this.multisigKeyIndex);
     this.multisigKeyIndex++;
     await this.saveKeyIndex('multisigKeyIndex', this.multisigKeyIndex);
-    let newTreeIndex = this.computeTreeIndex(this.multisigKeyIndex);
+    let newTreeIndex = computeTreeIndex(this.multisigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
       await this.makeMultisigTrees(newTreeIndex);
@@ -611,8 +535,8 @@ class LDPoSClient {
 
   async makeSigTrees(treeIndex) {
     let [ sigTree, nextSigTree ] = await Promise.all([
-      this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex),
-      this.computeTreeFromSeed(this.sigSeed, 'sig', treeIndex + 1)
+      computeTreeFromSeed(this.networkSymbol, this.sigSeed, 'sig', treeIndex),
+      computeTreeFromSeed(this.networkSymbol, this.sigSeed, 'sig', treeIndex + 1)
     ]);
     this.sigTree = sigTree;
     this.sigPublicKey = this.sigTree.publicRootHash;
@@ -621,7 +545,7 @@ class LDPoSClient {
   }
 
   async makeSigTreesFromKeyIndex(keyIndex) {
-    await this.makeSigTrees(this.computeTreeIndex(keyIndex));
+    await this.makeSigTrees(computeTreeIndex(keyIndex));
   }
 
   async incrementSigKey() {
@@ -630,10 +554,10 @@ class LDPoSClient {
         'Client must be connected with a passphrase in order to increment the sig key'
       );
     }
-    let currentTreeIndex = this.computeTreeIndex(this.sigKeyIndex);
+    let currentTreeIndex = computeTreeIndex(this.sigKeyIndex);
     this.sigKeyIndex++;
     await this.saveKeyIndex('sigKeyIndex', this.sigKeyIndex);
-    let newTreeIndex = this.computeTreeIndex(this.sigKeyIndex);
+    let newTreeIndex = computeTreeIndex(this.sigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
       await this.makeSigTrees(newTreeIndex);
@@ -649,7 +573,7 @@ class LDPoSClient {
       forgerAddress: this.walletAddress
     };
 
-    let blockId = this.computeId(extendedBlock);
+    let blockId = computeId(extendedBlock);
 
     extendedBlock.forgingPublicKey = this.forgingTree.publicRootHash;
     extendedBlock.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
@@ -657,9 +581,9 @@ class LDPoSClient {
 
     extendedBlock.id = blockId;
 
-    let extendedBlockWithIdJSON = this.stringifyObject(extendedBlock);
-    let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
-    let forgerSignature = this.merkle.sign(extendedBlockWithIdJSON, this.forgingTree, leafIndex);
+    let extendedBlockWithIdJSON = stringifyObject(extendedBlock);
+    let leafIndex = computeLeafIndex(this.forgingKeyIndex);
+    let forgerSignature = merkle.sign(extendedBlockWithIdJSON, this.forgingTree, leafIndex);
 
     await this.incrementForgingKey();
 
@@ -684,9 +608,9 @@ class LDPoSClient {
       nextForgingKeyIndex: this.forgingKeyIndex + 1
     };
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
-    let leafIndex = this.computeLeafIndex(this.forgingKeyIndex);
-    let signature = this.merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
+    let signablePacketJSON = stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    let leafIndex = computeLeafIndex(this.forgingKeyIndex);
+    let signature = merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
 
     await this.incrementForgingKey();
 
@@ -700,8 +624,8 @@ class LDPoSClient {
     let { forgerSignature, signatures, ...blockWithoutSignatures } = preparedBlock;
     let { signature, ...metaPacket } = signaturePacket;
 
-    let signablePacketJSON = this.stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
-    return this.merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
+    let signablePacketJSON = stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    return merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
   verifyBlockId(block) {
@@ -714,7 +638,7 @@ class LDPoSClient {
       nextForgingKeyIndex,
       ...simplifiedBlock
     } = block;
-    let expectedId = this.computeId(simplifiedBlock);
+    let expectedId = computeId(simplifiedBlock);
     return id === expectedId;
   }
 
@@ -723,17 +647,8 @@ class LDPoSClient {
       return false;
     }
     let { forgerSignature, signatures, ...blockWithoutSignatures } = block;
-    let blockJSON = this.stringifyObject(blockWithoutSignatures);
-    return this.merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
-  }
-
-  computeSeedFromPassphrase(passphrase) {
-    return bip39.mnemonicToSeedSync(passphrase).toString(SEED_ENCODING);
-  }
-
-  async computeTreeFromSeed(seed, type, treeIndex) {
-    let treeName = this.computeTreeName(type, treeIndex);
-    return this.merkle.generateMSSTree(seed, treeName);
+    let blockJSON = stringifyObject(blockWithoutSignatures);
+    return merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
   }
 
   async computeTree(type, treeIndex) {
@@ -756,15 +671,15 @@ class LDPoSClient {
         } passphrase in order to compute an MSS tree of that type`
       );
     }
-    return this.computeTreeFromSeed(seed, type, treeIndex);
+    return computeTreeFromSeed(this.networkSymbol, seed, type, treeIndex);
   }
 
   signMessage(message, tree, leafIndex) {
-    return this.merkle.sign(message, tree, leafIndex);
+    return merkle.sign(message, tree, leafIndex);
   }
 
   verifyMessage(message, signature, publicRootHash) {
-    return this.merkle.verify(message, signature, publicRootHash);
+    return merkle.verify(message, signature, publicRootHash);
   }
 
   async getPeers() {
@@ -941,5 +856,33 @@ function createClient(options) {
 
 module.exports = {
   LDPoSClient,
-  createClient
+  createClient,
+  merkle,
+  generateWallet,
+  computeWalletPublicKeysFromPassphrase,
+  computeWalletAddressFromPassphrase,
+  computeWalletAddressFromPublicKey,
+  computeSeedFromPassphrase,
+  computePublicKeyFromSeed,
+  computeTreeFromSeed,
+  computeTreeName,
+  computeWalletAddressFromSeed,
+  computeTreeIndex,
+  computeLeafIndex,
+  computeId,
+  validatePassphrase,
+  validateWalletAddress,
+  getAllObjectKeySet,
+  getAllObjectKeys,
+  stringifyObject,
+  stringifyObjectWithMetadata,
+  sha256,
+  LEAF_COUNT,
+  SEED_ENCODING,
+  NODE_ENCODING,
+  SIGNATURE_ENCODING,
+  ID_ENCODING,
+  ID_LENGTH,
+  WALLET_ADDRESS_BASE_BYTE_LENGTH,
+  HEX_REGEX
 };
