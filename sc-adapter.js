@@ -182,6 +182,10 @@ class SCAdapter {
     return this.invokeModuleProcedure(this.chainModuleName, 'getBlock', { blockId });
   }
 
+  async getSignedBlock(blockId) {
+    return this.invokeModuleProcedure(this.chainModuleName, 'getSignedBlock', { blockId });
+  }
+
   async getBlocksByTimestamp(offset, limit, order) {
     return this.invokeModuleProcedure(this.chainModuleName, 'getBlocksByTimestamp', { offset, limit, order });
   }

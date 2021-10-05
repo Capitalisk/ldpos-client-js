@@ -411,8 +411,8 @@ class LDPoSClient {
     if (!this.verifyTransactionId(transaction)) {
       return false;
     }
-    let { senderSignature, signatures, ...transactionWithoutSignatures } = transaction;
-    let transactionJSON = stringifyObject(transactionWithoutSignatures);
+    let { senderSignature, signatures, ...rawTransaction } = transaction;
+    let transactionJSON = stringifyObject(rawTransaction);
     return merkle.verify(transactionJSON, senderSignature, transaction.sigPublicKey);
   }
 
@@ -437,7 +437,7 @@ class LDPoSClient {
     if (!this.multisigTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a multisig transaction');
     }
-    let { senderSignature, signatures, ...transactionWithoutSignatures } = preparedTransaction;
+    let { senderSignature, signatures, ...rawTransaction } = preparedTransaction;
 
     let metaPacket = {
       signerAddress: this.walletAddress,
@@ -446,7 +446,7 @@ class LDPoSClient {
       nextMultisigKeyIndex: this.multisigKeyIndex + 1
     };
 
-    let signablePacketJSON = stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
+    let signablePacketJSON = stringifyObjectWithMetadata(rawTransaction, metaPacket);
     let leafIndex = computeLeafIndex(this.multisigKeyIndex);
     let signature = merkle.sign(signablePacketJSON, this.multisigTree, leafIndex);
 
@@ -464,10 +464,10 @@ class LDPoSClient {
   }
 
   verifyMultisigTransactionSignature(transaction, signaturePacket) {
-    let { senderSignature, signatures, ...transactionWithoutSignatures } = transaction;
+    let { senderSignature, signatures, ...rawTransaction } = transaction;
     let { signature, ...metaPacket } = signaturePacket;
 
-    let signablePacketJSON = stringifyObjectWithMetadata(transactionWithoutSignatures, metaPacket);
+    let signablePacketJSON = stringifyObjectWithMetadata(rawTransaction, metaPacket);
     return merkle.verify(signablePacketJSON, signature, metaPacket.multisigPublicKey);
   }
 
@@ -598,17 +598,17 @@ class LDPoSClient {
     if (!this.forgingTree) {
       throw new Error('Client must be connected with a passphrase in order to sign a block');
     }
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = preparedBlock;
+    let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
 
     let metaPacket = {
-      blockId: blockWithoutSignatures.id,
+      blockId: rawBlock.id,
       signerAddress: this.walletAddress,
       forgingPublicKey: this.forgingTree.publicRootHash,
       nextForgingPublicKey: this.nextForgingTree.publicRootHash,
       nextForgingKeyIndex: this.forgingKeyIndex + 1
     };
 
-    let signablePacketJSON = stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    let signablePacketJSON = stringifyObjectWithMetadata(rawBlock, metaPacket);
     let leafIndex = computeLeafIndex(this.forgingKeyIndex);
     let signature = merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
 
@@ -621,10 +621,10 @@ class LDPoSClient {
   }
 
   verifyBlockSignature(preparedBlock, signaturePacket) {
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = preparedBlock;
+    let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
     let { signature, ...metaPacket } = signaturePacket;
 
-    let signablePacketJSON = stringifyObjectWithMetadata(blockWithoutSignatures, metaPacket);
+    let signablePacketJSON = stringifyObjectWithMetadata(rawBlock, metaPacket);
     return merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
@@ -646,8 +646,8 @@ class LDPoSClient {
     if (!this.verifyBlockId(block)) {
       return false;
     }
-    let { forgerSignature, signatures, ...blockWithoutSignatures } = block;
-    let blockJSON = stringifyObject(blockWithoutSignatures);
+    let { forgerSignature, signatures, ...rawBlock } = block;
+    let blockJSON = stringifyObject(rawBlock);
     return merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
   }
 
@@ -809,6 +809,11 @@ class LDPoSClient {
   async getBlock(blockId) {
     this.verifyAdapterSupportsMethod('getBlock');
     return this.adapter.getBlock(blockId);
+  }
+
+  async getSignedBlock(blockId) {
+    this.verifyAdapterSupportsMethod('getSignedBlock');
+    return this.adapter.getSignedBlock(blockId);
   }
 
   async getBlocksByTimestamp(offset, limit, order) {
