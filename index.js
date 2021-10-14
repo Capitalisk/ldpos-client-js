@@ -701,6 +701,16 @@ class LDPoSClient {
     return this.networkSymbol;
   }
 
+  async getChainInfo() {
+    this.verifyAdapterSupportsMethod('getChainInfo');
+    return this.adapter.getChainInfo();
+  }
+
+  async getAPIInfo() {
+    this.verifyAdapterSupportsMethod('getAPIInfo');
+    return this.adapter.getAPIInfo();
+  }
+
   async getAccount(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccount');
     return this.adapter.getAccount(walletAddress);

@@ -94,6 +94,14 @@ class SCAdapter {
     return this.invokeModuleProcedure(this.chainModuleName, 'getNetworkSymbol');
   }
 
+  async getChainInfo() {
+    return this.invokeModuleProcedure(this.chainModuleName, 'getChainInfo');
+  }
+
+  async getAPIInfo() {
+    return this.invokeModuleProcedure(this.chainModuleName, 'getAPIInfo');
+  }
+
   async getAccount(walletAddress) {
     return this.invokeModuleProcedure(this.chainModuleName, 'getAccount', { walletAddress });
   }
