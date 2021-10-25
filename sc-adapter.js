@@ -9,7 +9,7 @@ class SCAdapter {
     this.socket = socketClusterClient.create({
       hostname: options.hostname,
       port: options.port,
-      path: '/socketcluster/',
+      path: options.path == null ? '/socketcluster/' : options.path,
       protocolVersion: options.socketProtocolVersion || 1,
       query: querystring.stringify({
         protocolVersion: options.peerProtocolVersion || '1.1',
