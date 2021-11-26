@@ -331,7 +331,7 @@ class LDPoSClient {
 
   async prepareRegisterSigDetails(options) {
     options = options || {};
-    let sigPassphrase = options.passphrase || this.sigPassphrase;
+    let sigPassphrase = options.sigPassphrase || this.sigPassphrase;
     let newNextSigKeyIndex = options.newNextSigKeyIndex || 0;
     let treeIndex = computeTreeIndex(newNextSigKeyIndex);
     let seed = computeSeedFromPassphrase(sigPassphrase);
