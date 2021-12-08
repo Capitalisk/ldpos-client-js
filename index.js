@@ -1,5 +1,5 @@
 const SCAdapter = require('./sc-adapter');
-const StoreClass = require('./store');
+const KeyManager = require('./key-manager');
 
 const {
   merkle,
@@ -56,10 +56,10 @@ class LDPoSClient {
       }
       this.adapter = new SCAdapter(this.options);
     }
-    if (this.options.store) {
-      this.store = this.options.store;
+    if (this.options.keyManager) {
+      this.keyManager = this.options.keyManager;
     } else {
-      this.store = new StoreClass(this.options);
+      this.keyManager = new KeyManager(this.options);
     }
   }
 
@@ -116,24 +116,21 @@ class LDPoSClient {
     if (options.forgingKeyIndex == null) {
       this.forgingKeyIndex = await this.loadKeyIndex('forgingKeyIndex');
     } else {
+      await this.saveKeyIndex('forgingKeyIndex', options.forgingKeyIndex);
       this.forgingKeyIndex = options.forgingKeyIndex;
     }
     if (options.multisigKeyIndex == null) {
       this.multisigKeyIndex = await this.loadKeyIndex('multisigKeyIndex');
     } else {
+      await this.saveKeyIndex('multisigKeyIndex', options.multisigKeyIndex);
       this.multisigKeyIndex = options.multisigKeyIndex;
     }
     if (options.sigKeyIndex == null) {
       this.sigKeyIndex = await this.loadKeyIndex('sigKeyIndex');
     } else {
+      await this.saveKeyIndex('sigKeyIndex', options.sigKeyIndex);
       this.sigKeyIndex = options.sigKeyIndex;
     }
-
-    await Promise.all([
-      this.makeForgingTreesFromKeyIndex(this.forgingKeyIndex),
-      this.makeMultisigTreesFromKeyIndex(this.multisigKeyIndex),
-      this.makeSigTreesFromKeyIndex(this.sigKeyIndex)
-    ]);
   }
 
   disconnect() {
@@ -219,13 +216,10 @@ class LDPoSClient {
       await this.saveKeyIndex(keyIndexName, accountNextKeyIndex);
       if (type === 'forging') {
         this.forgingKeyIndex = accountNextKeyIndex;
-        await this.makeForgingTreesFromKeyIndex(accountNextKeyIndex);
       } else if (type === 'multisig') {
         this.multisigKeyIndex = accountNextKeyIndex;
-        await this.makeMultisigTreesFromKeyIndex(accountNextKeyIndex);
       } else {
         this.sigKeyIndex = accountNextKeyIndex;
-        await this.makeSigTreesFromKeyIndex(accountNextKeyIndex);
       }
     }
     return isNew;
@@ -250,12 +244,16 @@ class LDPoSClient {
     return publicKey === targetTree.publicRootHash && nextPublicKey === targetNextTree.publicRootHash;
   }
 
+  async incrementKeyIndex(type) {
+    return this.keyManager.incrementKeyIndex(`${this.walletAddress}-${type}`);
+  }
+
   async loadKeyIndex(type) {
-    return Number((await this.store.loadItem(`${this.walletAddress}-${type}`)) || 0);
+    return this.keyManager.loadKeyIndex(`${this.walletAddress}-${type}`);
   }
 
   async saveKeyIndex(type, value) {
-    return this.store.saveItem(`${this.walletAddress}-${type}`, String(value));
+    return this.keyManager.saveKeyIndex(`${this.walletAddress}-${type}`, value);
   }
 
   async generateWallet() {
@@ -298,6 +296,8 @@ class LDPoSClient {
 
     let transactionId = computeId(extendedTransaction);
 
+    await this.incrementSigKey();
+
     extendedTransaction.sigPublicKey = this.sigTree.publicRootHash;
     extendedTransaction.nextSigPublicKey = this.nextSigTree.publicRootHash;
     extendedTransaction.nextSigKeyIndex = this.sigKeyIndex + 1;
@@ -307,8 +307,6 @@ class LDPoSClient {
     let extendedTransactionWithIdJSON = stringifyObject(extendedTransaction);
     let leafIndex = computeLeafIndex(this.sigKeyIndex);
     let senderSignature = merkle.sign(extendedTransactionWithIdJSON, this.sigTree, leafIndex);
-
-    await this.incrementSigKey();
 
     return {
       ...extendedTransaction,
@@ -439,6 +437,8 @@ class LDPoSClient {
     }
     let { senderSignature, signatures, ...rawTransaction } = preparedTransaction;
 
+    await this.incrementMultisigKey();
+
     let metaPacket = {
       signerAddress: this.walletAddress,
       multisigPublicKey: this.multisigTree.publicRootHash,
@@ -449,8 +449,6 @@ class LDPoSClient {
     let signablePacketJSON = stringifyObjectWithMetadata(rawTransaction, metaPacket);
     let leafIndex = computeLeafIndex(this.multisigKeyIndex);
     let signature = merkle.sign(signablePacketJSON, this.multisigTree, leafIndex);
-
-    await this.incrementMultisigKey();
 
     return {
       ...metaPacket,
@@ -493,8 +491,7 @@ class LDPoSClient {
       );
     }
     let currentTreeIndex = computeTreeIndex(this.forgingKeyIndex);
-    this.forgingKeyIndex++;
-    await this.saveKeyIndex('forgingKeyIndex', this.forgingKeyIndex);
+    this.forgingKeyIndex = await this.incrementKeyIndex('forgingKeyIndex');
     let newTreeIndex = computeTreeIndex(this.forgingKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
@@ -524,8 +521,7 @@ class LDPoSClient {
       );
     }
     let currentTreeIndex = computeTreeIndex(this.multisigKeyIndex);
-    this.multisigKeyIndex++;
-    await this.saveKeyIndex('multisigKeyIndex', this.multisigKeyIndex);
+    this.multisigKeyIndex = await this.incrementKeyIndex('multisigKeyIndex');
     let newTreeIndex = computeTreeIndex(this.multisigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
@@ -555,8 +551,7 @@ class LDPoSClient {
       );
     }
     let currentTreeIndex = computeTreeIndex(this.sigKeyIndex);
-    this.sigKeyIndex++;
-    await this.saveKeyIndex('sigKeyIndex', this.sigKeyIndex);
+    this.sigKeyIndex = await this.incrementKeyIndex('sigKeyIndex');
     let newTreeIndex = computeTreeIndex(this.sigKeyIndex);
 
     if (newTreeIndex !== currentTreeIndex) {
@@ -575,6 +570,8 @@ class LDPoSClient {
 
     let blockId = computeId(extendedBlock);
 
+    await this.incrementForgingKey();
+
     extendedBlock.forgingPublicKey = this.forgingTree.publicRootHash;
     extendedBlock.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
     extendedBlock.nextForgingKeyIndex = this.forgingKeyIndex + 1;
@@ -584,8 +581,6 @@ class LDPoSClient {
     let extendedBlockWithIdJSON = stringifyObject(extendedBlock);
     let leafIndex = computeLeafIndex(this.forgingKeyIndex);
     let forgerSignature = merkle.sign(extendedBlockWithIdJSON, this.forgingTree, leafIndex);
-
-    await this.incrementForgingKey();
 
     return {
       ...extendedBlock,
@@ -600,6 +595,8 @@ class LDPoSClient {
     }
     let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
 
+    await this.incrementForgingKey();
+
     let metaPacket = {
       blockId: rawBlock.id,
       signerAddress: this.walletAddress,
@@ -611,8 +608,6 @@ class LDPoSClient {
     let signablePacketJSON = stringifyObjectWithMetadata(rawBlock, metaPacket);
     let leafIndex = computeLeafIndex(this.forgingKeyIndex);
     let signature = merkle.sign(signablePacketJSON, this.forgingTree, leafIndex);
-
-    await this.incrementForgingKey();
 
     return {
       ...metaPacket,

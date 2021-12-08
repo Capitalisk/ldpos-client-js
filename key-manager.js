@@ -9,13 +9,19 @@ const unlink = util.promisify(fs.unlink);
 const DEFAULT_STORE_DIR_PATH = path.resolve(__dirname, 'data');
 const DEFAULT_STORE_FILE_EXTENSION = '';
 
-class Store {
+class KeyManager {
   constructor(options) {
     this.storeDirPath = options.storeDirPath == null ? DEFAULT_STORE_DIR_PATH : options.storeDirPath;
     this.storeFileExtension = options.storeFileExtension == null ? DEFAULT_STORE_FILE_EXTENSION : options.storeFileExtension;
   }
 
-  async saveItem(key, value) {
+  async incrementKeyIndex(key) {
+    let keyIndex = await this.loadKeyIndex(key);
+    await this.saveKeyIndex(key, ++keyIndex);
+    return keyIndex;
+  }
+
+  async saveKeyIndex(key, value) {
     let safeKey = encodeURIComponent(key);
     let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
     try {
@@ -27,14 +33,14 @@ class Store {
     }
   }
 
-  async loadItem(key) {
+  async loadKeyIndex(key) {
     let safeKey = encodeURIComponent(key);
     let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
     try {
-      return await readFile(targetFilePath, { encoding: 'utf8' });
+      return Number((await readFile(targetFilePath, { encoding: 'utf8' })) || 0);
     } catch (error) {
       if (error.code === 'ENOENT') {
-        return undefined;
+        return 0;
       }
       throw new Error(
         `Failed to load the ${key} item from the file system because of error: ${error.message}`
@@ -42,7 +48,7 @@ class Store {
     }
   }
 
-  async deleteItem(key) {
+  async deleteKeyIndex(key) {
     let safeKey = encodeURIComponent(key);
     let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
     try {
@@ -57,4 +63,4 @@ class Store {
   }
 }
 
-module.exports = Store;
+module.exports = KeyManager;
