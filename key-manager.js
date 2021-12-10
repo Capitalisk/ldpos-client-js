@@ -15,8 +15,8 @@ class KeyManager {
     this.keyDirPath = options.keyDirPath == null ? DEFAULT_STORE_DIR_PATH : options.keyDirPath;
     this.keyFileExtension = options.keyFileExtension == null ? DEFAULT_STORE_FILE_EXTENSION : options.keyFileExtension;
     this.keyFileLockOptions = {
-      ...options.keyFileLockOptions,
-      onCompromised: () => {}
+      onCompromised: () => {},
+      ...options.keyFileLockOptions
     };
   }
 
