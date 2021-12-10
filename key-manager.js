@@ -5,25 +5,81 @@ const crypto = require('crypto');
 const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
+const lockfile = require('proper-lockfile');
 
 const DEFAULT_STORE_DIR_PATH = path.resolve(__dirname, 'data');
 const DEFAULT_STORE_FILE_EXTENSION = '';
 
 class KeyManager {
   constructor(options) {
-    this.storeDirPath = options.storeDirPath == null ? DEFAULT_STORE_DIR_PATH : options.storeDirPath;
-    this.storeFileExtension = options.storeFileExtension == null ? DEFAULT_STORE_FILE_EXTENSION : options.storeFileExtension;
+    this.keyDirPath = options.keyDirPath == null ? DEFAULT_STORE_DIR_PATH : options.keyDirPath;
+    this.keyFileExtension = options.keyFileExtension == null ? DEFAULT_STORE_FILE_EXTENSION : options.keyFileExtension;
+    this.keyFileLockOptions = {
+      ...options.keyFileLockOptions,
+      onCompromised: () => {}
+    };
+  }
+
+  async lockFile(targetFilePath) {
+    try {
+      return await lockfile.lock(targetFilePath, this.keyFileLockOptions);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return () => Promise.resolve();
+      }
+      throw new Error(
+        `Failed to lock the key index file ${targetFilePath} because of error: ${error.message}`
+      );
+    }
+  }
+
+  getKeyFilePath(key) {
+    let safeKey = encodeURIComponent(key);
+    return path.resolve(this.keyDirPath, `${safeKey}${this.keyFileExtension}`);
   }
 
   async incrementKeyIndex(key) {
-    let keyIndex = await this.loadKeyIndex(key);
-    await this.saveKeyIndex(key, ++keyIndex);
+    let targetFilePath = this.getKeyFilePath(key);
+    let release = await this.lockFile(targetFilePath);
+    let keyIndex = await this._loadKeyIndexFromFile(targetFilePath, key);
+    await this._saveKeyIndexToFile(targetFilePath, key, ++keyIndex);
+    await release();
     return keyIndex;
   }
 
   async saveKeyIndex(key, value) {
-    let safeKey = encodeURIComponent(key);
-    let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
+    let targetFilePath = this.getKeyFilePath(key);
+    let release = await this.lockFile(targetFilePath);
+    let result = await this._saveKeyIndexToFile(targetFilePath, key, value);
+    await release();
+    return result;
+  }
+
+  async loadKeyIndex(key) {
+    let targetFilePath = this.getKeyFilePath(key);
+    let release = await this.lockFile(targetFilePath);
+    let keyIndex = await this._loadKeyIndexFromFile(targetFilePath, key);
+    await release();
+    return keyIndex;
+  }
+
+  async deleteKeyIndex(key) {
+    let targetFilePath = this.getKeyFilePath(key);
+    let release = await this.lockFile(targetFilePath);
+    try {
+      await unlink(targetFilePath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        await release();
+        throw new Error(
+          `Failed to delete the ${key} item from the file system because of error: ${error.message}`
+        );
+      }
+    }
+    await release();
+  }
+
+  async _saveKeyIndexToFile(targetFilePath, key, value) {
     try {
       return await writeFile(targetFilePath, String(value), { encoding: 'utf8', flag: 'w' });
     } catch (error) {
@@ -33,9 +89,7 @@ class KeyManager {
     }
   }
 
-  async loadKeyIndex(key) {
-    let safeKey = encodeURIComponent(key);
-    let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
+  async _loadKeyIndexFromFile(targetFilePath, key) {
     try {
       return Number((await readFile(targetFilePath, { encoding: 'utf8' })) || 0);
     } catch (error) {
@@ -45,20 +99,6 @@ class KeyManager {
       throw new Error(
         `Failed to load the ${key} item from the file system because of error: ${error.message}`
       );
-    }
-  }
-
-  async deleteKeyIndex(key) {
-    let safeKey = encodeURIComponent(key);
-    let targetFilePath = path.resolve(this.storeDirPath, `${safeKey}${this.storeFileExtension}`);
-    try {
-      await unlink(targetFilePath);
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        throw new Error(
-          `Failed to delete the ${key} item from the file system because of error: ${error.message}`
-        );
-      }
     }
   }
 }

@@ -131,6 +131,12 @@ class LDPoSClient {
       await this.saveKeyIndex('sigKeyIndex', options.sigKeyIndex);
       this.sigKeyIndex = options.sigKeyIndex;
     }
+
+    await Promise.all([
+      this.makeForgingTreesFromKeyIndex(this.forgingKeyIndex),
+      this.makeMultisigTreesFromKeyIndex(this.multisigKeyIndex),
+      this.makeSigTreesFromKeyIndex(this.sigKeyIndex)
+    ]);
   }
 
   disconnect() {
@@ -140,7 +146,7 @@ class LDPoSClient {
   }
 
   async syncAllKeyIndexes() {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to sync key indexes'
       );
@@ -167,7 +173,7 @@ class LDPoSClient {
   }
 
   async syncKeyIndex(type, sourceAccount) {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to sync a key index'
       );
@@ -176,7 +182,7 @@ class LDPoSClient {
       throw new Error(`The ${type} key index type was invalid`);
     }
     let keyIndexName = `${type}KeyIndex`;
-    let [ account, storedkeyIndex ] = await Promise.all([
+    let [ account, storedKeyIndex ] = await Promise.all([
       (async () => {
         try {
           return sourceAccount ? await sourceAccount : await this.getAccount(this.walletAddress);
@@ -211,22 +217,25 @@ class LDPoSClient {
       );
     }
 
-    let isNew = accountNextKeyIndex > storedkeyIndex;
+    let isNew = accountKeyIndex > storedKeyIndex;
     if (isNew) {
-      await this.saveKeyIndex(keyIndexName, accountNextKeyIndex);
+      await this.saveKeyIndex(keyIndexName, accountKeyIndex);
       if (type === 'forging') {
-        this.forgingKeyIndex = accountNextKeyIndex;
+        this.forgingKeyIndex = accountKeyIndex;
+        await this.makeForgingTreesFromKeyIndex(accountKeyIndex);
       } else if (type === 'multisig') {
-        this.multisigKeyIndex = accountNextKeyIndex;
+        this.multisigKeyIndex = accountKeyIndex;
+        await this.makeMultisigTreesFromKeyIndex(accountKeyIndex);
       } else {
-        this.sigKeyIndex = accountNextKeyIndex;
+        this.sigKeyIndex = accountKeyIndex;
+        await this.makeSigTreesFromKeyIndex(accountKeyIndex);
       }
     }
     return isNew;
   }
 
   async verifyKeyIndex(type, keyIndex, publicKey, nextPublicKey) {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to verify a key index'
       );
@@ -277,7 +286,7 @@ class LDPoSClient {
   }
 
   getWalletAddress() {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to get the wallet address'
       );
@@ -286,7 +295,7 @@ class LDPoSClient {
   }
 
   async prepareTransaction(transaction) {
-    if (!this.sigTree) {
+    if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to prepare a transaction');
     }
     let extendedTransaction = {
@@ -303,7 +312,6 @@ class LDPoSClient {
     extendedTransaction.nextSigKeyIndex = this.sigKeyIndex + 1;
 
     extendedTransaction.id = transactionId;
-
     let extendedTransactionWithIdJSON = stringifyObject(extendedTransaction);
     let leafIndex = computeLeafIndex(this.sigKeyIndex);
     let senderSignature = merkle.sign(extendedTransactionWithIdJSON, this.sigTree, leafIndex);
@@ -415,7 +423,7 @@ class LDPoSClient {
   }
 
   prepareMultisigTransaction(transaction) {
-    if (!this.walletAddress && !transaction.senderAddress) {
+    if (!this.passphrase && !transaction.senderAddress) {
       throw new Error(
         'Client must be connected with a passphrase in order to prepare a multisig transaction without specifying a senderAddress'
       );
@@ -432,7 +440,7 @@ class LDPoSClient {
   }
 
   async signMultisigTransaction(preparedTransaction) {
-    if (!this.multisigTree) {
+    if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to sign a multisig transaction');
     }
     let { senderSignature, signatures, ...rawTransaction } = preparedTransaction;
@@ -485,7 +493,7 @@ class LDPoSClient {
   }
 
   async incrementForgingKey() {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to increment the forging key'
       );
@@ -515,7 +523,7 @@ class LDPoSClient {
   }
 
   async incrementMultisigKey() {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to increment the multisig key'
       );
@@ -545,7 +553,7 @@ class LDPoSClient {
   }
 
   async incrementSigKey() {
-    if (!this.walletAddress) {
+    if (!this.passphrase) {
       throw new Error(
         'Client must be connected with a passphrase in order to increment the sig key'
       );
@@ -560,7 +568,7 @@ class LDPoSClient {
   }
 
   async prepareBlock(block) {
-    if (!this.forgingTree) {
+    if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to prepare a block');
     }
     let extendedBlock = {
@@ -590,7 +598,7 @@ class LDPoSClient {
   }
 
   async signBlock(preparedBlock) {
-    if (!this.forgingTree) {
+    if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to sign a block');
     }
     let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
