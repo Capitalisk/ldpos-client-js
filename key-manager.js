@@ -7,22 +7,22 @@ const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
 const lockfile = require('proper-lockfile');
 
-const DEFAULT_STORE_DIR_PATH = path.resolve(__dirname, 'data');
-const DEFAULT_STORE_FILE_EXTENSION = '';
+const DEFAULT_KEY_INDEX_DIR_PATH = path.resolve(__dirname, 'data');
+const DEFAULT_KEY_INDEX_FILE_EXTENSION = '';
 
 class KeyManager {
   constructor(options) {
-    this.keyDirPath = options.keyDirPath == null ? DEFAULT_STORE_DIR_PATH : options.keyDirPath;
-    this.keyFileExtension = options.keyFileExtension == null ? DEFAULT_STORE_FILE_EXTENSION : options.keyFileExtension;
-    this.keyFileLockOptions = {
+    this.keyIndexDirPath = options.keyIndexDirPath == null ? DEFAULT_KEY_INDEX_DIR_PATH : options.keyIndexDirPath;
+    this.keyIndexFileExtension = options.keyIndexFileExtension == null ? DEFAULT_KEY_INDEX_FILE_EXTENSION : options.keyIndexFileExtension;
+    this.keyIndexFileLockOptions = {
       onCompromised: () => {},
-      ...options.keyFileLockOptions
+      ...options.keyIndexFileLockOptions
     };
   }
 
   async lockFile(targetFilePath) {
     try {
-      return await lockfile.lock(targetFilePath, this.keyFileLockOptions);
+      return await lockfile.lock(targetFilePath, this.keyIndexFileLockOptions);
     } catch (error) {
       if (error.code === 'ENOENT') {
         return () => Promise.resolve();
@@ -35,7 +35,7 @@ class KeyManager {
 
   getKeyFilePath(key) {
     let safeKey = encodeURIComponent(key);
-    return path.resolve(this.keyDirPath, `${safeKey}${this.keyFileExtension}`);
+    return path.resolve(this.keyIndexDirPath, `${safeKey}${this.keyIndexFileExtension}`);
   }
 
   async incrementKeyIndex(key) {
