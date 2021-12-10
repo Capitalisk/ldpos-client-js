@@ -35,7 +35,7 @@ class KeyManager {
 
   getKeyFilePath(key) {
     let safeKey = encodeURIComponent(key);
-    return path.resolve(this.keyIndexDirPath, `${safeKey}${this.keyIndexFileExtension}`);
+    return path.resolve(__dirname, this.keyIndexDirPath, `${safeKey}${this.keyIndexFileExtension}`);
   }
 
   async incrementKeyIndex(key) {
