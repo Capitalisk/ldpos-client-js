@@ -24,7 +24,7 @@
   "dependencies": {
     "bip39": "^3.0.3",
     "lite-merkle": "^1.0.1",
-    "proper-lockfile": "^4.1.2",
+    "lockfile": "^1.0.4",
     "socketcluster-client": "^16.0.1"
   },
   "browser": {
