@@ -13,10 +13,10 @@ const blockchainNodePort = process.argv[3] || 7001;
   });
 
   await client.connect({
-    passphrase: 'clerk aware give dog reopen peasant duty cheese tobacco trouble gold angle'
+    // passphrase: 'clerk aware give dog reopen peasant duty cheese tobacco trouble gold angle'
   });
 
-  await client.syncAllKeyIndexes();
+  // await client.syncAllKeyIndexes();
 
   // let updateResult = await client.syncAllKeyIndexes();
   // let updateResult = await client.syncKeyIndex('forging');
@@ -81,7 +81,10 @@ const blockchainNodePort = process.argv[3] || 7001;
   // let blocks = await client.getBlocksBetweenHeights(0, 100);
   // console.log('BLOCKS:', blocks);
 
-  let minFees = await client.getMinFees();
-  console.log('MIN FEES:', minFees);
+  // let minFees = await client.getMinFees();
+  // console.log('MIN FEES:', minFees);
+
+  let result = await client.getMaxBlockHeight();
+  console.log('MAX BLOCK HEIGHT:', result);
 
 })();
