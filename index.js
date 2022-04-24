@@ -714,6 +714,11 @@ class LDPoSClient {
     return this.adapter.getAPIInfo();
   }
 
+  async getGenesis() {
+    this.verifyAdapterSupportsMethod('getGenesis');
+    return this.adapter.getGenesis();
+  }
+
   async getAccount(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccount');
     return this.adapter.getAccount(walletAddress);

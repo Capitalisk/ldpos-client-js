@@ -98,6 +98,10 @@ class SCAdapter {
     return this.invokeModuleProcedure(this.chainModuleName, 'getChainInfo');
   }
 
+  async getGenesis() {
+    return this.invokeModuleProcedure(this.chainModuleName, 'getGenesis');
+  }
+
   async getAPIInfo() {
     return this.invokeModuleProcedure(this.chainModuleName, 'getAPIInfo');
   }
