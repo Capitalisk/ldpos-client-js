@@ -28,6 +28,6 @@
     "socketcluster-client": "^16.0.4"
   },
   "browser": {
-    "./store": "./local-storage-store.js"
+    "./key-manager": "./local-storage-key-manager.js"
   }
 }

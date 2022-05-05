@@ -65,9 +65,8 @@ class KeyManager {
   async saveKeyIndex(key, value) {
     let targetFilePath = this.getKeyFilePath(key);
     await this.lockFile(targetFilePath);
-    let result = await this._saveKeyIndexToFile(targetFilePath, key, value);
+    await this._saveKeyIndexToFile(targetFilePath, key, value);
     await this.unlockFile(targetFilePath);
-    return result;
   }
 
   async loadKeyIndex(key) {
@@ -96,7 +95,7 @@ class KeyManager {
 
   async _saveKeyIndexToFile(targetFilePath, key, value) {
     try {
-      return await writeFile(targetFilePath, String(value), { encoding: 'utf8', flag: 'w' });
+      await writeFile(targetFilePath, String(value), { encoding: 'utf8', flag: 'w' });
     } catch (error) {
       throw new Error(
         `Failed to save the ${key} item to the file system because of error: ${error.message}`
