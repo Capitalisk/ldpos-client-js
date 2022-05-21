@@ -214,6 +214,10 @@ class SCAdapter {
     return this.invokeModuleProcedure(this.chainModuleName, 'getDelegate', { walletAddress });
   }
 
+  async getDelegateVoters(walletAddress, offset, limit, order) {
+    return this.invokeModuleProcedure(this.chainModuleName, 'getDelegateVoters', { walletAddress, offset, limit, order });
+  }
+
   async getAccountVotes(walletAddress) {
     return this.invokeModuleProcedure(this.chainModuleName, 'getAccountVotes', { walletAddress });
   }

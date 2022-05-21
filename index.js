@@ -854,6 +854,11 @@ class LDPoSClient {
     return this.adapter.getDelegate(walletAddress);
   }
 
+  async getDelegateVoters(walletAddress, offset, limit, order) {
+    this.verifyAdapterSupportsMethod('getDelegateVoters');
+    return this.adapter.getDelegateVoters(walletAddress, offset, limit, order);
+  }
+
   async getAccountVotes(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccountVotes');
     return this.adapter.getAccountVotes(walletAddress);
