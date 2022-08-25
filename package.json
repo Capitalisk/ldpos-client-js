@@ -4,7 +4,8 @@
   "description": "JavaScript Client for LDPoS",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:types": "npx jsdoc -t node_modules/tsd-jsdoc/dist -r index.js -d ."
   },
   "repository": {
     "type": "git",
@@ -29,5 +30,9 @@
   },
   "browser": {
     "./key-manager": "./local-storage-key-manager.js"
+  },
+  "devDependencies": {
+    "jsdoc": "^3.6.11",
+    "tsd-jsdoc": "^2.5.0"
   }
 }

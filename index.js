@@ -35,6 +35,16 @@ const {
 // TODO: Add methods for proving or disproving a signed transaction based on signatureHash.
 
 class LDPoSClient {
+  /**
+   * Initialize LDPoSClient
+   * @param {Object} [options={}]
+   * @param {string} [options.networkSymbol]
+   * @param {boolean} [options.verifyNetwork=true]
+   * @param {any} [options.adapter]
+   * @param {string} [options.hostname]
+   * @param {number} [options.port]
+   * @param {any} [options.keyManager]
+   */
   constructor(options) {
     this.options = options || {};
     let { networkSymbol, verifyNetwork } = this.options;
@@ -63,6 +73,19 @@ class LDPoSClient {
     }
   }
 
+  /**
+   * Connect to the chain
+   * @param {Object} [options={}]
+   * @param {boolean} [options.verifyNetwork=true]
+   * @param {string} options.passphrase
+   * @param {string} [options.multisigPassphrase]
+   * @param {string} [options.forgingPassphrase]
+   * @param {string} [options.walletAddress] Can be derived from passphrase
+   * @param {number} [options.forgingKeyIndex]
+   * @param {number} [options.multisigKeyIndex]
+   * @param {number} [options.sigKeyIndex]
+   * @returns {void}
+   */
   async connect(options) {
     options = options || {};
 
@@ -168,6 +191,11 @@ class LDPoSClient {
     }
   }
 
+  /**
+   * Transforms string to capitalized string
+   * @param {string} str 
+   * @returns {string} Uppercase string
+   */
   capitalizeString(str) {
     return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
   }
