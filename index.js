@@ -262,6 +262,14 @@ class LDPoSClient {
     return isNew;
   }
 
+  /**
+   * 
+   * @param {'forging' | 'multisig' | 'sig'} type 
+   * @param {number} keyIndex 
+   * @param {string} publicKey 
+   * @param {string} nextPublicKey 
+   * @returns {boolean}
+   */
   async verifyKeyIndex(type, keyIndex, publicKey, nextPublicKey) {
     if (!this.passphrase) {
       throw new Error(
