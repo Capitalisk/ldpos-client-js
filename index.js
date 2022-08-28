@@ -1,3 +1,8 @@
+/**
+ * @typedef {('forging' | 'multisig' | 'sig')} Type
+ * @typedef {Object} Transaction
+ */
+
 const SCAdapter = require('./sc-adapter');
 const KeyManager = require('./key-manager');
 
@@ -162,12 +167,20 @@ class LDPoSClient {
     ]);
   }
 
+  /**
+   * Disconnect from the adapter
+   * @returns {void}
+   */
   disconnect() {
     if (this.adapter.disconnect) {
       this.adapter.disconnect();
     }
   }
 
+  /**
+   * Syncs all key indexes
+   * @returns {Object}
+   */
   async syncAllKeyIndexes() {
     if (!this.passphrase) {
       throw new Error(
@@ -193,13 +206,19 @@ class LDPoSClient {
 
   /**
    * Transforms string to capitalized string
-   * @param {string} str 
+   * @param {string} str
    * @returns {string} Uppercase string
    */
   capitalizeString(str) {
     return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
   }
 
+  /**
+   * Sync's key index of specific type
+   * @param {Type} type 
+   * @param {string} sourceAccount 
+   * @returns {true | false | null}
+   */
   async syncKeyIndex(type, sourceAccount) {
     if (!this.passphrase) {
       throw new Error(
@@ -264,7 +283,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @param {'forging' | 'multisig' | 'sig'} type 
+   * @param {Type} type 
    * @param {number} keyIndex 
    * @param {string} publicKey 
    * @param {string} nextPublicKey 
@@ -289,38 +308,84 @@ class LDPoSClient {
     return publicKey === targetTree.publicRootHash && nextPublicKey === targetNextTree.publicRootHash;
   }
 
+  /**
+   *
+   * @param {Type} type
+   * @returns
+   */
   async incrementKeyIndex(type) {
     return this.keyManager.incrementKeyIndex(`${this.walletAddress}-${type}`);
   }
 
+  /**
+   *
+   * @param {Type} type
+   * @returns
+   */
   async loadKeyIndex(type) {
     return this.keyManager.loadKeyIndex(`${this.walletAddress}-${type}`);
   }
 
+  /**
+   *
+   * @param {Type} type
+   * @param {*} value
+   * @returns
+   */
   async saveKeyIndex(type, value) {
     return this.keyManager.saveKeyIndex(`${this.walletAddress}-${type}`, value);
   }
 
+  /**
+   * Generates a wallet based on the network symbol
+   * @returns {string} Wallet address
+   */
   async generateWallet() {
     return generateWallet(this.networkSymbol);
   }
 
+  /**
+   * Computes wallet address from passphrase
+   * @param {string} passphrase Passphrase 12-word mnemonic
+   * @returns {string} Wallet address
+   */
   async computeWalletAddressFromPassphrase(passphrase) {
     return computeWalletAddressFromPassphrase(this.networkSymbol, passphrase);
   }
 
+  /**
+   * Validates passphrase
+   * @param {string} passphrase  Passphrase 12-word mnemonic
+   * @returns {boolean}
+   */
   validatePassphrase(passphrase) {
     return validatePassphrase(passphrase);
   }
 
+  /**
+   * Validates wallet address
+   * @param {string} walletAddress Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
+   * @returns {boolean}
+   */
   validateWalletAddress(walletAddress) {
     return validateWalletAddress(this.networkSymbol, walletAddress);
   }
 
+  /**
+   * Encodes messages
+   * @param {string} message 
+   * @param {*} encoding 
+   * @returns {string}
+   */
   sha256(message, encoding) {
     return sha256(message, encoding);
   }
 
+  /**
+   * Get's a wallets address
+   * @description Only works if a passphrase is provided during the connection phase.
+   * @returns {string} Wallet address
+   */
   getWalletAddress() {
     if (!this.passphrase) {
       throw new Error(
@@ -330,6 +395,11 @@ class LDPoSClient {
     return this.walletAddress;
   }
 
+  /**
+   * 
+   * @param {*} transaction 
+   * @returns 
+   */
   async prepareTransaction(transaction) {
     if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to prepare a transaction');
@@ -358,6 +428,11 @@ class LDPoSClient {
     };
   }
 
+  /**
+   * 
+   * @param {*} options 
+   * @returns 
+   */
   async prepareRegisterMultisigWallet(options) {
     options = options || {};
     let { memberAddresses, requiredSignatureCount } = options;
@@ -371,6 +446,11 @@ class LDPoSClient {
     });
   }
 
+  /**
+   * 
+   * @param {*} options 
+   * @returns 
+   */
   async prepareRegisterSigDetails(options) {
     options = options || {};
     let sigPassphrase = options.sigPassphrase || this.sigPassphrase;
@@ -392,6 +472,11 @@ class LDPoSClient {
     });
   }
 
+  /**
+   * 
+   * @param {*} options 
+   * @returns 
+   */
   async prepareRegisterMultisigDetails(options) {
     options = options || {};
     let multisigPassphrase = options.multisigPassphrase || this.multisigPassphrase;
@@ -413,6 +498,11 @@ class LDPoSClient {
     });
   }
 
+  /**
+   * 
+   * @param {*} options 
+   * @returns 
+   */
   async prepareRegisterForgingDetails(options) {
     options = options || {};
     let forgingPassphrase = options.forgingPassphrase || this.forgingPassphrase;
@@ -434,6 +524,11 @@ class LDPoSClient {
     });
   }
 
+  /**
+   * 
+   * @param {*} transaction 
+   * @returns 
+   */
   verifyTransactionId(transaction) {
     let {
       id,
@@ -449,6 +544,11 @@ class LDPoSClient {
     return id === expectedId;
   }
 
+  /**
+   * 
+   * @param {*} transaction 
+   * @returns 
+   */
   verifyTransaction(transaction) {
     if (!this.verifyTransactionId(transaction)) {
       return false;
@@ -458,6 +558,11 @@ class LDPoSClient {
     return merkle.verify(transactionJSON, senderSignature, transaction.sigPublicKey);
   }
 
+  /**
+   * 
+   * @param {*} transaction 
+   * @returns 
+   */
   prepareMultisigTransaction(transaction) {
     if (!this.passphrase && !transaction.senderAddress) {
       throw new Error(
@@ -475,6 +580,11 @@ class LDPoSClient {
     return extendedTransaction;
   }
 
+  /**
+   * 
+   * @param {*} preparedTransaction 
+   * @returns 
+   */
   async signMultisigTransaction(preparedTransaction) {
     if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to sign a multisig transaction');
@@ -500,11 +610,23 @@ class LDPoSClient {
     };
   }
 
+  /**
+   * 
+   * @param {*} preparedTransaction 
+   * @param {*} signaturePacket 
+   * @returns 
+   */
   attachMultisigTransactionSignature(preparedTransaction, signaturePacket) {
     preparedTransaction.signatures.push(signaturePacket);
     return preparedTransaction;
   }
 
+  /**
+   * 
+   * @param {*} transaction 
+   * @param {*} signaturePacket 
+   * @returns 
+   */
   verifyMultisigTransactionSignature(transaction, signaturePacket) {
     let { senderSignature, signatures, ...rawTransaction } = transaction;
     let { signature, ...metaPacket } = signaturePacket;
@@ -513,6 +635,10 @@ class LDPoSClient {
     return merkle.verify(signablePacketJSON, signature, metaPacket.multisigPublicKey);
   }
 
+  /**
+   * 
+   * @param {*} treeIndex 
+   */
   async makeForgingTrees(treeIndex) {
     let [ forgingTree, nextForgingTree ] = await Promise.all([
       computeTreeFromSeed(this.networkSymbol, this.forgingSeed, 'forging', treeIndex),
@@ -524,10 +650,17 @@ class LDPoSClient {
     this.nextForgingPublicKey = this.nextForgingTree.publicRootHash;
   }
 
+  /**
+   * 
+   * @param {*} keyIndex 
+   */
   async makeForgingTreesFromKeyIndex(keyIndex) {
     await this.makeForgingTrees(computeTreeIndex(keyIndex));
   }
 
+  /**
+   * 
+   */
   async incrementForgingKey() {
     if (!this.passphrase) {
       throw new Error(
@@ -543,6 +676,10 @@ class LDPoSClient {
     }
   }
 
+  /**
+   * 
+   * @param {*} treeIndex 
+   */
   async makeMultisigTrees(treeIndex) {
     let [ multisigTree, nextMultisigTree ] = await Promise.all([
       computeTreeFromSeed(this.networkSymbol, this.multisigSeed, 'multisig', treeIndex),
@@ -554,10 +691,17 @@ class LDPoSClient {
     this.nextMultisigPublicKey = this.nextMultisigTree.publicRootHash;
   }
 
+  /**
+   * 
+   * @param {*} keyIndex 
+   */
   async makeMultisigTreesFromKeyIndex(keyIndex) {
     await this.makeMultisigTrees(computeTreeIndex(keyIndex));
   }
 
+  /**
+   * 
+   */
   async incrementMultisigKey() {
     if (!this.passphrase) {
       throw new Error(
@@ -573,6 +717,10 @@ class LDPoSClient {
     }
   }
 
+  /**
+   * 
+   * @param {*} treeIndex 
+   */
   async makeSigTrees(treeIndex) {
     let [ sigTree, nextSigTree ] = await Promise.all([
       computeTreeFromSeed(this.networkSymbol, this.sigSeed, 'sig', treeIndex),
@@ -584,10 +732,17 @@ class LDPoSClient {
     this.nextSigPublicKey = this.nextSigTree.publicRootHash;
   }
 
+  /**
+   * 
+   * @param {*} keyIndex 
+   */
   async makeSigTreesFromKeyIndex(keyIndex) {
     await this.makeSigTrees(computeTreeIndex(keyIndex));
   }
 
+  /**
+   * 
+   */
   async incrementSigKey() {
     if (!this.passphrase) {
       throw new Error(
@@ -603,6 +758,11 @@ class LDPoSClient {
     }
   }
 
+  /**
+   * 
+   * @param {*} block 
+   * @returns 
+   */
   async prepareBlock(block) {
     if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to prepare a block');
@@ -633,6 +793,11 @@ class LDPoSClient {
     };
   }
 
+  /**
+   * 
+   * @param {*} preparedBlock 
+   * @returns 
+   */
   async signBlock(preparedBlock) {
     if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to sign a block');
@@ -659,6 +824,12 @@ class LDPoSClient {
     };
   }
 
+  /**
+   * 
+   * @param {*} preparedBlock 
+   * @param {*} signaturePacket 
+   * @returns 
+   */
   verifyBlockSignature(preparedBlock, signaturePacket) {
     let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
     let { signature, ...metaPacket } = signaturePacket;
@@ -667,6 +838,11 @@ class LDPoSClient {
     return merkle.verify(signablePacketJSON, signature, metaPacket.forgingPublicKey);
   }
 
+  /**
+   * 
+   * @param {*} block 
+   * @returns 
+   */
   verifyBlockId(block) {
     let {
       id,
@@ -681,6 +857,11 @@ class LDPoSClient {
     return id === expectedId;
   }
 
+  /**
+   * 
+   * @param {*} block 
+   * @returns 
+   */
   verifyBlock(block) {
     if (!this.verifyBlockId(block)) {
       return false;
@@ -690,6 +871,12 @@ class LDPoSClient {
     return merkle.verify(blockJSON, block.forgerSignature, block.forgingPublicKey);
   }
 
+  /**
+   * 
+   * @param {*} type 
+   * @param {*} treeIndex 
+   * @returns 
+   */
   async computeTree(type, treeIndex) {
     let seed;
     if (type === 'sig') {
@@ -713,198 +900,423 @@ class LDPoSClient {
     return computeTreeFromSeed(this.networkSymbol, seed, type, treeIndex);
   }
 
+  /**
+   * 
+   * @param {*} message 
+   * @param {*} tree 
+   * @param {*} leafIndex 
+   * @returns 
+   */
   signMessage(message, tree, leafIndex) {
     return merkle.sign(message, tree, leafIndex);
   }
 
+  /**
+   * 
+   * @param {*} message 
+   * @param {*} signature 
+   * @param {*} publicRootHash 
+   * @returns 
+   */
   verifyMessage(message, signature, publicRootHash) {
     return merkle.verify(message, signature, publicRootHash);
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getPeers() {
     this.verifyAdapterSupportsMethod('getPeers');
     return this.adapter.getPeers();
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getNodeInfo() {
     this.verifyAdapterSupportsMethod('getNodeInfo');
     return this.adapter.getNodeInfo();
   }
 
+  /**
+   * 
+   * @returns 
+   */
   getNodeInfoChangeConsumer() {
     this.verifyAdapterSupportsMethod('getNodeInfoChangeConsumer');
     return this.adapter.getNodeInfoChangeConsumer();
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getNetworkSymbol() {
     return this.networkSymbol;
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getChainInfo() {
     this.verifyAdapterSupportsMethod('getChainInfo');
     return this.adapter.getChainInfo();
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getAPIInfo() {
     this.verifyAdapterSupportsMethod('getAPIInfo');
     return this.adapter.getAPIInfo();
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getGenesis() {
     this.verifyAdapterSupportsMethod('getGenesis');
     return this.adapter.getGenesis();
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @returns 
+   */
   async getAccount(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccount');
     return this.adapter.getAccount(walletAddress);
   }
 
+  /**
+   * 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getAccountsByBalance(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getAccountsByBalance');
     return this.adapter.getAccountsByBalance(offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @returns 
+   */
   async getMultisigWalletMembers(walletAddress) {
     this.verifyAdapterSupportsMethod('getMultisigWalletMembers');
     return this.adapter.getMultisigWalletMembers(walletAddress);
   }
 
+  /**
+   * 
+   * @param {*} transactionId 
+   * @returns 
+   */
   async getSignedPendingTransaction(transactionId) {
     this.verifyAdapterSupportsMethod('getSignedPendingTransaction');
     return this.adapter.getSignedPendingTransaction(transactionId);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @returns 
+   */
   async getOutboundPendingTransactions(walletAddress, offset, limit) {
     this.verifyAdapterSupportsMethod('getOutboundPendingTransactions');
     return this.adapter.getOutboundPendingTransactions(walletAddress, offset, limit);
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getPendingTransactionCount() {
     this.verifyAdapterSupportsMethod('getPendingTransactionCount');
     return this.adapter.getPendingTransactionCount();
   }
 
+  /**
+   * 
+   * @param {*} preparedTransaction 
+   * @returns 
+   */
   async postTransaction(preparedTransaction) {
     this.verifyAdapterSupportsMethod('postTransaction');
     return this.adapter.postTransaction(preparedTransaction);
   }
 
+  /**
+   * 
+   * @param {*} transactionId 
+   * @returns 
+   */
   async getTransaction(transactionId) {
     this.verifyAdapterSupportsMethod('getTransaction');
     return this.adapter.getTransaction(transactionId);
   }
 
+  /**
+   * 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getTransactionsByTimestamp(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getTransactionsByTimestamp');
     return this.adapter.getTransactionsByTimestamp(offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} fromTimestamp 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getAccountTransactions');
     return this.adapter.getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} fromTimestamp 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getInboundTransactions');
     return this.adapter.getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} fromTimestamp 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getOutboundTransactions');
     return this.adapter.getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} blockId 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @returns 
+   */
   async getTransactionsFromBlock(blockId, offset, limit) {
     this.verifyAdapterSupportsMethod('getTransactionsFromBlock');
     return this.adapter.getTransactionsFromBlock(blockId, offset, limit);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} blockId 
+   * @returns 
+   */
   async getInboundTransactionsFromBlock(walletAddress, blockId) {
     this.verifyAdapterSupportsMethod('getInboundTransactionsFromBlock');
     return this.adapter.getInboundTransactionsFromBlock(walletAddress, blockId);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} blockId 
+   * @returns 
+   */
   async getOutboundTransactionsFromBlock(walletAddress, blockId) {
     this.verifyAdapterSupportsMethod('getOutboundTransactionsFromBlock');
     return this.adapter.getOutboundTransactionsFromBlock(walletAddress, blockId);
   }
 
+  /**
+   * 
+   * @param {*} timestamp 
+   * @returns 
+   */
   async getLastBlockAtTimestamp(timestamp) {
     this.verifyAdapterSupportsMethod('getLastBlockAtTimestamp');
     return this.adapter.getLastBlockAtTimestamp(timestamp);
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getMaxBlockHeight() {
     this.verifyAdapterSupportsMethod('getMaxBlockHeight');
     return this.adapter.getMaxBlockHeight();
   }
 
+  /**
+   * 
+   * @param {*} height 
+   * @param {*} limit 
+   * @returns 
+   */
   async getBlocksFromHeight(height, limit) {
     this.verifyAdapterSupportsMethod('getBlocksFromHeight');
     return this.adapter.getBlocksFromHeight(height, limit);
   }
 
+  /**
+   * 
+   * @param {*} height 
+   * @param {*} limit 
+   * @returns 
+   */
   async getSignedBlocksFromHeight(height, limit) {
     this.verifyAdapterSupportsMethod('getSignedBlocksFromHeight');
     return this.adapter.getSignedBlocksFromHeight(height, limit);
   }
 
+  /**
+   * 
+   * @param {*} fromHeight 
+   * @param {*} toHeight 
+   * @param {*} limit 
+   * @returns 
+   */
   async getBlocksBetweenHeights(fromHeight, toHeight, limit) {
     this.verifyAdapterSupportsMethod('getBlocksBetweenHeights');
     return this.adapter.getBlocksBetweenHeights(fromHeight, toHeight, limit);
   }
 
+  /**
+   * 
+   * @param {*} height 
+   * @returns 
+   */
   async getBlockAtHeight(height) {
     this.verifyAdapterSupportsMethod('getBlockAtHeight');
     return this.adapter.getBlockAtHeight(height);
   }
 
+  /**
+   * 
+   * @param {*} blockId 
+   * @returns 
+   */
   async getBlock(blockId) {
     this.verifyAdapterSupportsMethod('getBlock');
     return this.adapter.getBlock(blockId);
   }
 
+  /**
+   * 
+   * @param {*} blockId 
+   * @returns 
+   */
   async getSignedBlock(blockId) {
     this.verifyAdapterSupportsMethod('getSignedBlock');
     return this.adapter.getSignedBlock(blockId);
   }
 
+  /**
+   * 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getBlocksByTimestamp(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getBlocksByTimestamp');
     return this.adapter.getBlocksByTimestamp(offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getDelegatesByVoteWeight(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getDelegatesByVoteWeight');
     return this.adapter.getDelegatesByVoteWeight(offset, limit, order);
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getForgingDelegates() {
     this.verifyAdapterSupportsMethod('getForgingDelegates');
     return this.adapter.getForgingDelegates();
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @returns 
+   */
   async getDelegate(walletAddress) {
     this.verifyAdapterSupportsMethod('getDelegate');
     return this.adapter.getDelegate(walletAddress);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @param {*} offset 
+   * @param {*} limit 
+   * @param {*} order 
+   * @returns 
+   */
   async getDelegateVoters(walletAddress, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getDelegateVoters');
     return this.adapter.getDelegateVoters(walletAddress, offset, limit, order);
   }
 
+  /**
+   * 
+   * @param {*} walletAddress 
+   * @returns 
+   */
   async getAccountVotes(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccountVotes');
     return this.adapter.getAccountVotes(walletAddress);
   }
 
+  /**
+   * 
+   * @returns 
+   */
   async getMinFees() {
     this.verifyAdapterSupportsMethod('getMinFees');
     return this.adapter.getMinFees();
   }
 
+  /**
+   * 
+   * @param {*} methodName 
+   */
   verifyAdapterSupportsMethod(methodName) {
     if (!this.adapter[methodName]) {
       throw new Error(
@@ -914,6 +1326,11 @@ class LDPoSClient {
   }
 }
 
+/**
+ * 
+ * @param {*} options 
+ * @returns 
+ */
 function createClient(options) {
   return new LDPoSClient(options);
 }
