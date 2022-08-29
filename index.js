@@ -1,6 +1,30 @@
 /**
  * @typedef {('forging' | 'multisig' | 'sig')} Type
+ */
+
+/**
  * @typedef {Object} Transaction
+ * @property {'transfer' | 'vote' | 'unvote'} type Transaction type
+ * @property {string} recipientAddress Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
+ * @property {string=} amount Amount to transact 1000000000 being 1 token, not applicable to vote
+ * @property {string} fee Fee of the transaction
+ * @example
+ * const minFees = await client.getMinFees();
+ * // Assign the min fees to object
+ * fee: minFees.minTransactionFees.transfer
+ * @property {number} timestamp Unix timestamp (e.g. Date.now())
+ * @property {string=} message Message to include in the transaction
+ */
+
+/**
+ * @typedef {Object} ExtendedTransaction
+ * @property {string} senderAddress Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
+ * @property {string} sigPublicKey Public key
+ * @property {string} nextSigPublicKey Public key
+ * @property {number} nextSigKeyIndex Next sig key index
+ * @property {string} id Transaction id
+ * @property {string} senderSignature Signiture of sender
+ *
  */
 
 const SCAdapter = require('./sc-adapter');
@@ -180,6 +204,9 @@ class LDPoSClient {
   /**
    * Syncs all key indexes
    * @returns {Object}
+   * @property {string} sig index key
+   * @property {string} multisig index key
+   * @property {string} forging index key
    */
   async syncAllKeyIndexes() {
     if (!this.passphrase) {
@@ -215,8 +242,8 @@ class LDPoSClient {
 
   /**
    * Sync's key index of specific type
-   * @param {Type} type 
-   * @param {string} sourceAccount 
+   * @param {Type} type Type of key
+   * @param {string} sourceAccount Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
    * @returns {true | false | null}
    */
   async syncKeyIndex(type, sourceAccount) {
@@ -282,11 +309,11 @@ class LDPoSClient {
   }
 
   /**
-   * 
-   * @param {Type} type 
-   * @param {number} keyIndex 
-   * @param {string} publicKey 
-   * @param {string} nextPublicKey 
+   * Verify key index
+   * @param {Type} type Type of key
+   * @param {number} keyIndex Index number
+   * @param {string} publicKey Public key
+   * @param {string} nextPublicKey Next public key
    * @returns {boolean}
    */
   async verifyKeyIndex(type, keyIndex, publicKey, nextPublicKey) {
@@ -309,28 +336,28 @@ class LDPoSClient {
   }
 
   /**
-   *
-   * @param {Type} type
-   * @returns
+   * Increments key index
+   * @param {Type} type Type of key
+   * @returns {Promise} Key index number
    */
   async incrementKeyIndex(type) {
     return this.keyManager.incrementKeyIndex(`${this.walletAddress}-${type}`);
   }
 
   /**
-   *
-   * @param {Type} type
-   * @returns
+   * Load key index
+   * @param {Type} type Type of key
+   * @returns {Promise} Key index number
    */
   async loadKeyIndex(type) {
     return this.keyManager.loadKeyIndex(`${this.walletAddress}-${type}`);
   }
 
   /**
-   *
-   * @param {Type} type
-   * @param {*} value
-   * @returns
+   * Save key index
+   * @param {Type} type Type of key
+   * @param {string} value Value to add to the key
+   * @returns {Promise}
    */
   async saveKeyIndex(type, value) {
     return this.keyManager.saveKeyIndex(`${this.walletAddress}-${type}`, value);
@@ -338,7 +365,7 @@ class LDPoSClient {
 
   /**
    * Generates a wallet based on the network symbol
-   * @returns {string} Wallet address
+   * @returns {string} Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
    */
   async generateWallet() {
     return generateWallet(this.networkSymbol);
@@ -347,7 +374,7 @@ class LDPoSClient {
   /**
    * Computes wallet address from passphrase
    * @param {string} passphrase Passphrase 12-word mnemonic
-   * @returns {string} Wallet address
+   * @returns {string} Token symbol followed by 40 hexadecimal characters (e.g. clsk57c12965bf0b92aa4eab8b8e87aa9f3a2dac21d8)
    */
   async computeWalletAddressFromPassphrase(passphrase) {
     return computeWalletAddressFromPassphrase(this.networkSymbol, passphrase);
@@ -355,7 +382,7 @@ class LDPoSClient {
 
   /**
    * Validates passphrase
-   * @param {string} passphrase  Passphrase 12-word mnemonic
+   * @param {string} passphrase Passphrase 12-word mnemonic
    * @returns {boolean}
    */
   validatePassphrase(passphrase) {
@@ -373,9 +400,9 @@ class LDPoSClient {
 
   /**
    * Encodes messages
-   * @param {string} message 
-   * @param {*} encoding 
-   * @returns {string}
+   * @param {string} message Message to encode
+   * @param {string} [encoding='base64'] 
+   * @returns {string} SHA256 string
    */
   sha256(message, encoding) {
     return sha256(message, encoding);
@@ -396,16 +423,27 @@ class LDPoSClient {
   }
 
   /**
-   * 
-   * @param {*} transaction 
-   * @returns 
+   * Prepare a transaction
+   * @example
+   * const minFees = await client.getMinFees();
+   *
+   * client.prepareTransaction({
+   *   type: 'transfer',
+   *   recipientAddress: 'clsk65d4b765f0abe4dae5c564b4a6d2d7b70311fd9e',
+   *   amount: '1000000000', // amounts to 1 CLSK
+   *   fee: minFees.minTransactionFees.transfer,
+   *   timestamp: Date.now(),
+   *   message: 'Your first succesful transaction!',
+   * })
+   * @param {Transaction} transaction Transaction object
+   * @returns {{...Transaction, ...ExtendedTransaction}}
    */
   async prepareTransaction(transaction) {
     if (!this.passphrase) {
       throw new Error('Client must be connected with a passphrase in order to prepare a transaction');
     }
     let extendedTransaction = {
-      ...transaction,
+      transaction,
       senderAddress: this.walletAddress
     };
 
@@ -431,7 +469,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} options 
-   * @returns 
+   * @returns {void}
    */
   async prepareRegisterMultisigWallet(options) {
     options = options || {};
@@ -449,7 +487,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} options 
-   * @returns 
+   * @returns {void}
    */
   async prepareRegisterSigDetails(options) {
     options = options || {};
@@ -475,7 +513,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} options 
-   * @returns 
+   * @returns {void}
    */
   async prepareRegisterMultisigDetails(options) {
     options = options || {};
@@ -501,7 +539,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} options 
-   * @returns 
+   * @returns {void}
    */
   async prepareRegisterForgingDetails(options) {
     options = options || {};
@@ -526,8 +564,8 @@ class LDPoSClient {
 
   /**
    * 
-   * @param {*} transaction 
-   * @returns 
+   * @param {Transaction} transaction 
+   * @returns {void}
    */
   verifyTransactionId(transaction) {
     let {
@@ -546,8 +584,8 @@ class LDPoSClient {
 
   /**
    * 
-   * @param {*} transaction 
-   * @returns 
+   * @param {Transaction} transaction 
+   * @returns {void}
    */
   verifyTransaction(transaction) {
     if (!this.verifyTransactionId(transaction)) {
@@ -560,8 +598,8 @@ class LDPoSClient {
 
   /**
    * 
-   * @param {*} transaction 
-   * @returns 
+   * @param {Transaction} transaction 
+   * @returns {void}
    */
   prepareMultisigTransaction(transaction) {
     if (!this.passphrase && !transaction.senderAddress) {
@@ -570,7 +608,7 @@ class LDPoSClient {
       );
     }
     let extendedTransaction = {
-      ...transaction,
+      transaction,
       senderAddress: transaction.senderAddress || this.walletAddress
     };
 
@@ -583,7 +621,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} preparedTransaction 
-   * @returns 
+   * @returns {void}
    */
   async signMultisigTransaction(preparedTransaction) {
     if (!this.passphrase) {
@@ -614,7 +652,7 @@ class LDPoSClient {
    * 
    * @param {*} preparedTransaction 
    * @param {*} signaturePacket 
-   * @returns 
+   * @returns {void}
    */
   attachMultisigTransactionSignature(preparedTransaction, signaturePacket) {
     preparedTransaction.signatures.push(signaturePacket);
@@ -623,9 +661,9 @@ class LDPoSClient {
 
   /**
    * 
-   * @param {*} transaction 
+   * @param {Transaction} transaction 
    * @param {*} signaturePacket 
-   * @returns 
+   * @returns {void}
    */
   verifyMultisigTransactionSignature(transaction, signaturePacket) {
     let { senderSignature, signatures, ...rawTransaction } = transaction;
@@ -761,7 +799,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} block 
-   * @returns 
+   * @returns {void}
    */
   async prepareBlock(block) {
     if (!this.passphrase) {
@@ -796,7 +834,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} preparedBlock 
-   * @returns 
+   * @returns {void}
    */
   async signBlock(preparedBlock) {
     if (!this.passphrase) {
@@ -828,7 +866,7 @@ class LDPoSClient {
    * 
    * @param {*} preparedBlock 
    * @param {*} signaturePacket 
-   * @returns 
+   * @returns {void}
    */
   verifyBlockSignature(preparedBlock, signaturePacket) {
     let { forgerSignature, signatures, ...rawBlock } = preparedBlock;
@@ -841,7 +879,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} block 
-   * @returns 
+   * @returns {void}
    */
   verifyBlockId(block) {
     let {
@@ -860,7 +898,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} block 
-   * @returns 
+   * @returns {void}
    */
   verifyBlock(block) {
     if (!this.verifyBlockId(block)) {
@@ -875,7 +913,7 @@ class LDPoSClient {
    * 
    * @param {*} type 
    * @param {*} treeIndex 
-   * @returns 
+   * @returns {void}
    */
   async computeTree(type, treeIndex) {
     let seed;
@@ -905,7 +943,7 @@ class LDPoSClient {
    * @param {*} message 
    * @param {*} tree 
    * @param {*} leafIndex 
-   * @returns 
+   * @returns {void}
    */
   signMessage(message, tree, leafIndex) {
     return merkle.sign(message, tree, leafIndex);
@@ -916,7 +954,7 @@ class LDPoSClient {
    * @param {*} message 
    * @param {*} signature 
    * @param {*} publicRootHash 
-   * @returns 
+   * @returns {void}
    */
   verifyMessage(message, signature, publicRootHash) {
     return merkle.verify(message, signature, publicRootHash);
@@ -924,7 +962,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getPeers() {
     this.verifyAdapterSupportsMethod('getPeers');
@@ -933,7 +971,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getNodeInfo() {
     this.verifyAdapterSupportsMethod('getNodeInfo');
@@ -942,7 +980,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   getNodeInfoChangeConsumer() {
     this.verifyAdapterSupportsMethod('getNodeInfoChangeConsumer');
@@ -951,7 +989,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getNetworkSymbol() {
     return this.networkSymbol;
@@ -959,7 +997,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getChainInfo() {
     this.verifyAdapterSupportsMethod('getChainInfo');
@@ -968,7 +1006,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getAPIInfo() {
     this.verifyAdapterSupportsMethod('getAPIInfo');
@@ -977,7 +1015,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getGenesis() {
     this.verifyAdapterSupportsMethod('getGenesis');
@@ -987,7 +1025,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} walletAddress 
-   * @returns 
+   * @returns {void}
    */
   async getAccount(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccount');
@@ -999,7 +1037,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getAccountsByBalance(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getAccountsByBalance');
@@ -1009,7 +1047,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} walletAddress 
-   * @returns 
+   * @returns {void}
    */
   async getMultisigWalletMembers(walletAddress) {
     this.verifyAdapterSupportsMethod('getMultisigWalletMembers');
@@ -1019,7 +1057,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} transactionId 
-   * @returns 
+   * @returns {void}
    */
   async getSignedPendingTransaction(transactionId) {
     this.verifyAdapterSupportsMethod('getSignedPendingTransaction');
@@ -1031,7 +1069,7 @@ class LDPoSClient {
    * @param {*} walletAddress 
    * @param {*} offset 
    * @param {*} limit 
-   * @returns 
+   * @returns {void}
    */
   async getOutboundPendingTransactions(walletAddress, offset, limit) {
     this.verifyAdapterSupportsMethod('getOutboundPendingTransactions');
@@ -1040,7 +1078,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getPendingTransactionCount() {
     this.verifyAdapterSupportsMethod('getPendingTransactionCount');
@@ -1050,7 +1088,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} preparedTransaction 
-   * @returns 
+   * @returns {void}
    */
   async postTransaction(preparedTransaction) {
     this.verifyAdapterSupportsMethod('postTransaction');
@@ -1060,7 +1098,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} transactionId 
-   * @returns 
+   * @returns {void}
    */
   async getTransaction(transactionId) {
     this.verifyAdapterSupportsMethod('getTransaction');
@@ -1072,7 +1110,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getTransactionsByTimestamp(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getTransactionsByTimestamp');
@@ -1086,7 +1124,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getAccountTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getAccountTransactions');
@@ -1100,7 +1138,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getInboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getInboundTransactions');
@@ -1114,7 +1152,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getOutboundTransactions(walletAddress, fromTimestamp, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getOutboundTransactions');
@@ -1126,7 +1164,7 @@ class LDPoSClient {
    * @param {*} blockId 
    * @param {*} offset 
    * @param {*} limit 
-   * @returns 
+   * @returns {void}
    */
   async getTransactionsFromBlock(blockId, offset, limit) {
     this.verifyAdapterSupportsMethod('getTransactionsFromBlock');
@@ -1137,7 +1175,7 @@ class LDPoSClient {
    * 
    * @param {*} walletAddress 
    * @param {*} blockId 
-   * @returns 
+   * @returns {void}
    */
   async getInboundTransactionsFromBlock(walletAddress, blockId) {
     this.verifyAdapterSupportsMethod('getInboundTransactionsFromBlock');
@@ -1148,7 +1186,7 @@ class LDPoSClient {
    * 
    * @param {*} walletAddress 
    * @param {*} blockId 
-   * @returns 
+   * @returns {void}
    */
   async getOutboundTransactionsFromBlock(walletAddress, blockId) {
     this.verifyAdapterSupportsMethod('getOutboundTransactionsFromBlock');
@@ -1158,7 +1196,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} timestamp 
-   * @returns 
+   * @returns {void}
    */
   async getLastBlockAtTimestamp(timestamp) {
     this.verifyAdapterSupportsMethod('getLastBlockAtTimestamp');
@@ -1167,7 +1205,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getMaxBlockHeight() {
     this.verifyAdapterSupportsMethod('getMaxBlockHeight');
@@ -1178,7 +1216,7 @@ class LDPoSClient {
    * 
    * @param {*} height 
    * @param {*} limit 
-   * @returns 
+   * @returns {void}
    */
   async getBlocksFromHeight(height, limit) {
     this.verifyAdapterSupportsMethod('getBlocksFromHeight');
@@ -1189,7 +1227,7 @@ class LDPoSClient {
    * 
    * @param {*} height 
    * @param {*} limit 
-   * @returns 
+   * @returns {void}
    */
   async getSignedBlocksFromHeight(height, limit) {
     this.verifyAdapterSupportsMethod('getSignedBlocksFromHeight');
@@ -1201,7 +1239,7 @@ class LDPoSClient {
    * @param {*} fromHeight 
    * @param {*} toHeight 
    * @param {*} limit 
-   * @returns 
+   * @returns {void}
    */
   async getBlocksBetweenHeights(fromHeight, toHeight, limit) {
     this.verifyAdapterSupportsMethod('getBlocksBetweenHeights');
@@ -1211,7 +1249,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} height 
-   * @returns 
+   * @returns {void}
    */
   async getBlockAtHeight(height) {
     this.verifyAdapterSupportsMethod('getBlockAtHeight');
@@ -1221,7 +1259,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} blockId 
-   * @returns 
+   * @returns {void}
    */
   async getBlock(blockId) {
     this.verifyAdapterSupportsMethod('getBlock');
@@ -1231,7 +1269,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} blockId 
-   * @returns 
+   * @returns {void}
    */
   async getSignedBlock(blockId) {
     this.verifyAdapterSupportsMethod('getSignedBlock');
@@ -1243,7 +1281,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getBlocksByTimestamp(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getBlocksByTimestamp');
@@ -1255,7 +1293,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getDelegatesByVoteWeight(offset, limit, order) {
     this.verifyAdapterSupportsMethod('getDelegatesByVoteWeight');
@@ -1264,7 +1302,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getForgingDelegates() {
     this.verifyAdapterSupportsMethod('getForgingDelegates');
@@ -1274,7 +1312,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} walletAddress 
-   * @returns 
+   * @returns {void}
    */
   async getDelegate(walletAddress) {
     this.verifyAdapterSupportsMethod('getDelegate');
@@ -1287,7 +1325,7 @@ class LDPoSClient {
    * @param {*} offset 
    * @param {*} limit 
    * @param {*} order 
-   * @returns 
+   * @returns {void}
    */
   async getDelegateVoters(walletAddress, offset, limit, order) {
     this.verifyAdapterSupportsMethod('getDelegateVoters');
@@ -1297,7 +1335,7 @@ class LDPoSClient {
   /**
    * 
    * @param {*} walletAddress 
-   * @returns 
+   * @returns {void}
    */
   async getAccountVotes(walletAddress) {
     this.verifyAdapterSupportsMethod('getAccountVotes');
@@ -1306,7 +1344,7 @@ class LDPoSClient {
 
   /**
    * 
-   * @returns 
+   * @returns {void}
    */
   async getMinFees() {
     this.verifyAdapterSupportsMethod('getMinFees');
@@ -1329,7 +1367,7 @@ class LDPoSClient {
 /**
  * 
  * @param {*} options 
- * @returns 
+ * @returns {void}
  */
 function createClient(options) {
   return new LDPoSClient(options);
