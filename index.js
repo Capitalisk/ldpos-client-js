@@ -443,7 +443,7 @@ class LDPoSClient {
       throw new Error('Client must be connected with a passphrase in order to prepare a transaction');
     }
     let extendedTransaction = {
-      transaction,
+      ...transaction,
       senderAddress: this.walletAddress
     };
 
@@ -608,7 +608,7 @@ class LDPoSClient {
       );
     }
     let extendedTransaction = {
-      transaction,
+      ...transaction,
       senderAddress: transaction.senderAddress || this.walletAddress
     };
 
