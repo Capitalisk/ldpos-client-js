@@ -1,22 +1,24 @@
 const socketClusterClient = require('socketcluster-client');
 const querystring = require('querystring');
 
-const DEFAULT_NETHASH = null;
 const RPC_REQUEST_PROCEDURE = 'rpc-request';
 
 class SCAdapter {
   constructor(options) {
+    let queryData = {
+      protocolVersion: options.peerProtocolVersion || '1.1',
+      version: options.clientVersion || '2.0.0',
+      isPassive: true
+    };
+    if (options.nethash != null) {
+      queryData.nethash = options.nethash;
+    }
     this.socket = socketClusterClient.create({
       hostname: options.hostname,
       port: options.port,
       path: options.path == null ? '/socketcluster/' : options.path,
       protocolVersion: options.socketProtocolVersion || 1,
-      query: querystring.stringify({
-        protocolVersion: options.peerProtocolVersion || '1.1',
-        nethash: options.nethash == null ? DEFAULT_NETHASH : options.nethash,
-        version: options.clientVersion || '2.0.0',
-        isPassive: true
-      }),
+      query: querystring.stringify(queryData),
       autoConnect: false,
       ...options
     });
