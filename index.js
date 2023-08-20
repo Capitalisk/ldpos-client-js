@@ -322,12 +322,25 @@ class LDPoSClient {
     };
   }
 
+  async prepareTransfer(options) {
+    options = options || {};
+    let { recipientAddress, amount, fee } = options;
+    return this.prepareTransaction({
+      type: 'transfer',
+      recipientAddress,
+      amount,
+      fee,
+      timestamp: options.timestamp == null ? Date.now() : options.timestamp,
+      message: options.message == null ? '' : options.message
+    });
+  }
+
   async prepareRegisterMultisigWallet(options) {
     options = options || {};
-    let { memberAddresses, requiredSignatureCount } = options;
+    let { memberAddresses, requiredSignatureCount, fee } = options;
     return this.prepareTransaction({
       type: 'registerMultisigWallet',
-      fee: options.fee,
+      fee,
       memberAddresses,
       requiredSignatureCount,
       timestamp: options.timestamp == null ? Date.now() : options.timestamp,

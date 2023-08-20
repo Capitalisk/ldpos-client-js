@@ -18,6 +18,13 @@ const blockchainNodePort = process.argv[3] || 7001;
 
   // await client.syncAllKeyIndexes();
 
+  // let transfer = await client.prepareTransfer({
+  //   recipientAddress: 'clskefecd5cf611f1e3939b3f2754ad7d5b8ecd620a4',
+  //   amount: '1000000000',
+  //   fee: '10000000',
+  //   message: 'Test'
+  // });
+
   // let updateResult = await client.syncAllKeyIndexes();
   // let updateResult = await client.syncKeyIndex('forging');
   // console.log('UPDATED KEYS:', updateResult);
@@ -86,5 +93,11 @@ const blockchainNodePort = process.argv[3] || 7001;
 
   let result = await client.getMaxBlockHeight();
   console.log('MAX BLOCK HEIGHT:', result);
+
+  let info = await client.getNodeInfo();
+  console.log('INFO:', info);
+
+  // let voters = await client.getDelegateVoters('clskbde48efe4fb34f91f3bfad4e4e8feb081b302b0f', 0, 10, 'asc');
+  // console.log('DELEGATE VOTERS:', voters);
 
 })();
