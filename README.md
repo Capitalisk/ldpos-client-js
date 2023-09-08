@@ -10,5 +10,7 @@ npm install
 Then:
 
 ```
-./node_modules/.bin/rollup --config ./rollup.config.js
+npm run build
 ```
+
+The built bundle is `module.js`.

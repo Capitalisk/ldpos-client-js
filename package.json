@@ -1,9 +1,10 @@
 {
   "name": "ldpos-client",
-  "version": "11.4.1",
+  "version": "11.4.2",
   "description": "JavaScript Client for LDPoS",
   "main": "index.js",
   "scripts": {
+    "build": "./node_modules/.bin/rollup --config ./rollup.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,7 +26,7 @@
     "bip39": "^3.0.3",
     "lite-merkle": "^1.1.0",
     "lockfile": "^1.0.4",
-    "socketcluster-client": "^16.0.4"
+    "socketcluster-client": "^18.0.0"
   },
   "browser": {
     "./key-manager": "./local-storage-key-manager.js"
