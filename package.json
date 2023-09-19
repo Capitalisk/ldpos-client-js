@@ -1,6 +1,6 @@
 {
   "name": "ldpos-client",
-  "version": "11.5.1",
+  "version": "11.5.2",
   "description": "JavaScript Client for LDPoS",
   "main": "index.js",
   "scripts": {
@@ -26,7 +26,7 @@
     "bip39": "^3.0.3",
     "lite-merkle": "^1.1.0",
     "lockfile": "^1.0.4",
-    "socketcluster-client": "^18.1.1"
+    "socketcluster-client": "^18.1.3"
   },
   "browser": {
     "./key-manager": "./local-storage-key-manager.js"
