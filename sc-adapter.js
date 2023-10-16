@@ -17,7 +17,7 @@ class SCAdapter {
       hostname: options.hostname,
       port: options.port,
       path: options.path == null ? '/socketcluster/' : options.path,
-      protocolVersion: options.socketProtocolVersion || 1,
+      protocolVersion: options.socketProtocolVersion || 2,
       query: querystring.stringify(queryData),
       autoConnect: false,
       ...options
