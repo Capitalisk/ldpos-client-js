@@ -265,6 +265,22 @@ class LDPoSClient {
     return this.keyManager.saveKeyIndex(`${this.walletAddress}-${type}`, value);
   }
 
+  async deleteKeyIndex(type) {
+    return this.keyManager.deleteKeyIndex(`${this.walletAddress}-${type}`);
+  }
+
+  async deleteAllKeyIndexes() {
+    try {
+      await Promise.all([
+        this.deleteKeyIndex('sigKeyIndex'),
+        this.deleteKeyIndex('multisigKeyIndex'),
+        this.deleteKeyIndex('forgingKeyIndex')
+      ]);
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
   async generateWallet() {
     return generateWallet(this.networkSymbol);
   }
