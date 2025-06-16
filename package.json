@@ -26,7 +26,7 @@
     "bip39": "^3.0.3",
     "lite-merkle": "^1.1.0",
     "lockfile": "^1.0.4",
-    "socketcluster-client": "^19.2.5"
+    "socketcluster-client": "^19.2.6"
   },
   "browser": {
     "./key-manager": "./local-storage-key-manager.js"
