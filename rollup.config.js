@@ -11,6 +11,13 @@ module.exports = {
     file: 'module.js',
     format: 'es'
   },
+  onwarn: (warning, warn) => {
+    // Ignore circular dependency warnings from node_modules
+    if (warning.code === 'CIRCULAR_DEPENDENCY' && /node_modules/.test(warning.message)) {
+      return;
+    }
+    warn(warning);
+  },
   plugins: [
     commonjs(),
     nodePolyfills(),
